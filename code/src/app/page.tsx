@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { Navbar } from "@/app/components/Navbar";
 
 type FileWithPreview = {
   file: File;
@@ -17,19 +18,25 @@ export default function Home() {
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // navbar
+  const [isDark, setIsDark] = useState(true);
+
   const acceptedTypes = ["audio/mpeg", "audio/mp3", "video/mp4"];
   const acceptedExtensions = [".mp3", ".mp4"];
 
   const validateFile = (file: File): boolean => {
     const isValidType = acceptedTypes.includes(file.type);
     const isValidExtension = acceptedExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext)
+      file.name.toLowerCase().endsWith(ext),
     );
     return isValidType || isValidExtension;
   };
 
   const getFileType = (file: File): "audio" | "video" => {
-    if (file.type.startsWith("audio/") || file.name.toLowerCase().endsWith(".mp3")) {
+    if (
+      file.type.startsWith("audio/") ||
+      file.name.toLowerCase().endsWith(".mp3")
+    ) {
       return "audio";
     }
     return "video";
@@ -72,7 +79,7 @@ export default function Home() {
         handleFiles(e.dataTransfer.files);
       }
     },
-    [handleFiles]
+    [handleFiles],
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,37 +118,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Header */}
-      <header className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
-        <div className="max-w-4xl mx-auto px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[var(--accent-blue)] flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-                Pitch Perfect
-              </h1>
-              <p className="text-sm text-[var(--text-tertiary)]">
-                AI-powered presentation coach
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-24">
+      {/* Navbar */}
+      <Navbar
+        brandName="Pitch Perfect"
+        navItems={[
+          { label: "Home", href: "/" },
+          { label: "About", href: "/about" },
+          { label: "Demo", href: "/demo" },
+          { label: "Login", href: "/login" },
+        ]}
+        onThemeToggle={() => setIsDark(!isDark)}
+        isDarkMode={isDark}
+      />
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-6 py-10">
@@ -218,7 +207,9 @@ export default function Home() {
                   </div>
 
                   <p className="text-[var(--text-primary)] font-medium mb-1">
-                    {isDragging ? "Drop your files here" : "Click to upload or drag and drop"}
+                    {isDragging
+                      ? "Drop your files here"
+                      : "Click to upload or drag and drop"}
                   </p>
                   <p className="text-sm text-[var(--text-tertiary)]">
                     MP3 or MP4 files supported
@@ -393,8 +384,9 @@ export default function Home() {
                         Analysis Complete!
                       </h4>
                       <p className="text-[var(--text-secondary)] mb-4">
-                        Your presentation has been analyzed. Check your results below
-                        to see personalized feedback and suggestions for improvement.
+                        Your presentation has been analyzed. Check your results
+                        below to see personalized feedback and suggestions for
+                        improvement.
                       </p>
                       <button
                         onClick={handleReset}
