@@ -100,6 +100,12 @@ export interface Recommendation {
   actionItems?: string[];
 }
 
+export interface TranscriptInfo {
+  source: "user" | "elevenlabs";
+  text: string;
+  segments?: Array<{ startMs?: number; endMs?: number; text: string }>;
+}
+
 export interface EvaluationReport {
   version: "1.0";
   summary: {
@@ -112,6 +118,7 @@ export interface EvaluationReport {
   delivery?: DeliveryEvaluation;
   audio?: AudioEvaluation;
   video?: VideoEvaluation;
+  transcript?: TranscriptInfo;
   timeline?: TimelineEvent[];
   recommendations: Recommendation[];
   warnings?: string[];

@@ -15,7 +15,7 @@ Form fields:
 - `deckText`: text (optional; use if no deck file)
 - `transcript`: text
 - `metadata`: JSON string
-- `deck`: pitch deck file (PDF only for now)
+- `deck`: pitch deck file (optional, PDF only for now)
 - `media`: one or more files (video/audio)
 
 Response:
@@ -50,11 +50,16 @@ Response:
 
 - `GEMINI_API_KEY`: required for live responses.
 - `GEMINI_MODEL`: defaults to `gemini-1.5-flash`.
+- `ELEVENLABS_API_KEY`: required for auto-generated transcripts from audio/video.
+- `ELEVENLABS_STT_ENDPOINT`: optional override (defaults to ElevenLabs speech-to-text endpoint).
+- `ELEVENLABS_STT_MODEL`: optional override (defaults to `scribe_v2`).
 
 ## Notes
 
 - Media is stored locally in `code/.data/uploads` and results in `code/.data/results`.
-- Deck files are parsed locally into text (PDF/PPTX) before Gemini evaluation.
+- Deck files are parsed locally into text (PDF) before Gemini evaluation.
+- If no transcript is provided and audio/video is available, the server attempts
+  to generate a transcript via ElevenLabs STT.
 - Large files are skipped for inline Gemini input (limit ~4 MB).
 - Jobs are queued in-process; replace with a proper worker for production.
 

@@ -28,6 +28,7 @@ export default function Home() {
   );
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [submittedInputs, setSubmittedInputs] = useState<string[] | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState("idle");
   const [report, setReport] = useState<EvaluationReport | null>(null);
@@ -197,10 +198,6 @@ export default function Home() {
       setError(deckError);
       return;
     }
-    if (!deckFile) {
-      setError("Please upload a PDF deck.");
-      return;
-    }
 
     let metadata: Record<string, string> | undefined;
     if (metadataRaw.trim()) {
@@ -215,6 +212,30 @@ export default function Home() {
     setIsSubmitting(true);
     try {
       const allFiles = recordedAudio ? [recordedAudio, ...files] : files;
+      const uploadedAudio = allFiles.filter((file) => file.type.startsWith("audio/"));
+      const uploadedVideo = allFiles.filter((file) => file.type.startsWith("video/"));
+      const summary: string[] = [];
+      if (deckFile) {
+        summary.push(`Deck: ${deckFile.name}`);
+      }
+      if (transcript.trim()) {
+        summary.push("Transcript: provided");
+      } else if (uploadedAudio.length > 0 || uploadedVideo.length > 0) {
+        summary.push("Transcript: auto (ElevenLabs)");
+      }
+      if (recordedAudio) {
+        summary.push(`Recorded audio: ${recordedAudio.name}`);
+      }
+      if (uploadedAudio.length > 0) {
+        summary.push(`Audio files: ${uploadedAudio.map((file) => file.name).join(", ")}`);
+      }
+      if (uploadedVideo.length > 0) {
+        summary.push(`Video files: ${uploadedVideo.map((file) => file.name).join(", ")}`);
+      }
+      if (summary.length === 0) {
+        summary.push("Inputs: none");
+      }
+      setSubmittedInputs(summary);
       const response = await startEvaluation({
         target,
         context: context.trim() || undefined,
@@ -284,7 +305,7 @@ export default function Home() {
             </label>
 
             <label className="text-sm font-semibold text-slate-200">
-              Pitch Deck File
+              Pitch Deck File (optional)
               <input
                 type="file"
                 accept=".pdf,application/pdf"
@@ -306,7 +327,7 @@ export default function Home() {
               <textarea
                 value={transcript}
                 onChange={(event) => setTranscript(event.target.value)}
-                placeholder="Paste a transcript if available."
+                placeholder="Paste a transcript or leave blank to auto-generate from audio."
                 className="mt-2 h-32 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm text-slate-100"
               />
             </label>
@@ -410,6 +431,18 @@ export default function Home() {
                 <div>Status: {jobStatus}</div>
                 <div>Job ID: {jobId ?? "—"}</div>
               </div>
+              {submittedInputs && (
+                <div className="mt-4 text-xs text-slate-300">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                    Inputs
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {submittedInputs.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
@@ -464,6 +497,35 @@ export default function Home() {
               <pre className="mt-3 max-h-80 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-950/80 p-3 text-xs text-slate-200">
                 {report ? JSON.stringify(report, null, 2) : "No data yet."}
               </pre>
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Transcript
+              </h2>
+              {report?.transcript?.text ? (
+                <div className="mt-3 text-sm text-slate-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Source: {report.transcript.source}
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-slate-200">
+                    {report.transcript.text}
+                  </p>
+                </div>
+              ) : transcript.trim() ? (
+                <div className="mt-3 text-sm text-slate-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Source: user
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-slate-200">
+                    {transcript.trim()}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-400">
+                  No transcript available yet.
+                </p>
+              )}
             </div>
           </div>
         </section>

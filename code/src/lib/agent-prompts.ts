@@ -20,7 +20,14 @@ export async function renderPrompt(
   vars: Record<string, string | undefined>
 ) {
   const filePath = path.join(PROMPT_DIR, `${name}.txt`);
-  const template = await fs.readFile(filePath, "utf8");
+  let template = "";
+  try {
+    template = await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    throw new Error(
+      `Failed to load prompt '${name}' from ${filePath}: ${String(error)}`
+    );
+  }
   const normalized: Record<string, string> = {};
   for (const [key, value] of Object.entries(vars)) {
     normalized[key] = normalizeSection(value);

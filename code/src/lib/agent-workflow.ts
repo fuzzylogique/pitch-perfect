@@ -10,6 +10,7 @@ import {
 import { renderPrompt } from "./agent-prompts";
 import { callGeminiJson, getDefaultModel } from "./agent-llm";
 import { prepareAudioForAgent } from "./media-utils";
+import { transcribeWithElevenLabs } from "./transcription";
 
 type AgentStatus = "ok" | "error";
 
@@ -138,6 +139,7 @@ function buildFallbackReport(
     pitchDeck: partial?.pitchDeck,
     delivery: partial?.delivery,
     audio: partial?.audio,
+    transcript: partial?.transcript,
     timeline: partial?.timeline,
     recommendations: partial?.recommendations ?? [],
     warnings,
@@ -151,17 +153,17 @@ function buildFallbackReport(
 
 function buildWorkflow() {
   return new StateGraph(WorkflowState)
-    .addNode("deck", deckAgent)
-    .addNode("text", textAgent)
-    .addNode("audio", audioAgent)
-    .addNode("combine", combineAgent)
-    .addEdge(START, "deck")
-    .addEdge(START, "text")
-    .addEdge(START, "audio")
-    .addEdge("deck", "combine")
-    .addEdge("text", "combine")
-    .addEdge("audio", "combine")
-    .addEdge("combine", END)
+    .addNode("deckAgent", deckAgent)
+    .addNode("textAgent", textAgent)
+    .addNode("audioAgent", audioAgent)
+    .addNode("combineAgent", combineAgent)
+    .addEdge(START, "deckAgent")
+    .addEdge(START, "textAgent")
+    .addEdge(START, "audioAgent")
+    .addEdge("deckAgent", "combineAgent")
+    .addEdge("textAgent", "combineAgent")
+    .addEdge("audioAgent", "combineAgent")
+    .addEdge("combineAgent", END)
     .compile();
 }
 
@@ -179,9 +181,36 @@ export async function runAgentWorkflow(params: {
   });
   warnings.push(...audioPrep.warnings);
 
+  const transcriptText = params.request.transcript?.trim();
+  let transcriptInfo: EvaluationReport["transcript"];
+  let resolvedTranscript = transcriptText;
+
+  if (transcriptText) {
+    transcriptInfo = { source: "user", text: transcriptText };
+  } else if (audioPrep.audioPath) {
+    const transcriptResult = await transcribeWithElevenLabs({
+      audioPath: audioPrep.audioPath,
+    });
+    if (transcriptResult.ok && transcriptResult.text) {
+      resolvedTranscript = transcriptResult.text;
+      transcriptInfo = {
+        source: "elevenlabs",
+        text: transcriptResult.text,
+        segments: transcriptResult.segments,
+      };
+    } else if (transcriptResult.error) {
+      warnings.push(transcriptResult.error);
+    }
+  }
+
+  const requestWithTranscript: EvaluationRequest = {
+    ...params.request,
+    transcript: resolvedTranscript,
+  };
+
   const finalState = await workflow.invoke({
     input: {
-      request: params.request,
+      request: requestWithTranscript,
       audioMeta: audioPrep.audioMeta,
     },
   });
@@ -204,10 +233,11 @@ export async function runAgentWorkflow(params: {
     if (finalState.combined?.error) {
       warnings.push(`Combiner failed: ${finalState.combined.error}`);
     }
-    return buildFallbackReport(params.request, warnings, {
+    return buildFallbackReport(requestWithTranscript, warnings, {
       pitchDeck: deck,
       delivery,
       audio,
+      transcript: transcriptInfo,
     });
   }
 
@@ -217,6 +247,7 @@ export async function runAgentWorkflow(params: {
     pitchDeck: deck,
     delivery,
     audio,
+    transcript: transcriptInfo,
     timeline: finalState.combined.data.timeline,
     recommendations: finalState.combined.data.recommendations,
     warnings: warnings.length > 0 ? warnings : undefined,

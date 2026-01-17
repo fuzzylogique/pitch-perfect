@@ -1,6 +1,7 @@
 You are combining independent evaluations into a final report. Use the agent
 outputs to generate a cohesive summary, timeline, and recommendations.
 Return ONLY JSON matching the schema. No markdown, no extra keys.
+Be concrete and align with evidence in the agent outputs.
 
 Schema:
 {
@@ -22,6 +23,7 @@ Rules:
 - Overall score should reflect deck, text, and audio results.
 - Highlights and risks should be concise and specific.
 - Timeline entries should be 6-12 items total.
+- If an agent output is null or missing, proceed with the remaining evidence.
 
 Deck agent output:
 {{deckAgent}}

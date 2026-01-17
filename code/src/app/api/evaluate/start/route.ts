@@ -181,35 +181,43 @@ async function runEvaluation(jobId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const contentType = request.headers.get("content-type") ?? "";
-  const payload = contentType.includes("multipart/form-data")
-    ? await parseFormData(request)
-    : await parseJson(request);
+  try {
+    const contentType = request.headers.get("content-type") ?? "";
+    const payload = contentType.includes("multipart/form-data")
+      ? await parseFormData(request)
+      : await parseJson(request);
 
-  const id = randomUUID();
-  const deckExtraction = await handleDeckFile(id, payload.deckFile);
-  const media = await storeUploads(id, payload.files);
-  const deckText = payload.deckText ?? deckExtraction.deckText;
-  const metadata =
-    deckExtraction.warning
-      ? {
-          ...(payload.metadata ?? {}),
-          deckExtractionWarning: deckExtraction.warning,
-        }
-      : payload.metadata;
-  const input: EvaluationRequest = {
-    target: payload.target,
-    context: payload.context,
-    deckText,
-    transcript: payload.transcript,
-    metadata,
-  };
+    const id = randomUUID();
+    const deckExtraction = await handleDeckFile(id, payload.deckFile);
+    const media = await storeUploads(id, payload.files);
+    const deckText = payload.deckText ?? deckExtraction.deckText;
+    const metadata =
+      deckExtraction.warning
+        ? {
+            ...(payload.metadata ?? {}),
+            deckExtractionWarning: deckExtraction.warning,
+          }
+        : payload.metadata;
+    const input: EvaluationRequest = {
+      target: payload.target,
+      context: payload.context,
+      deckText,
+      transcript: payload.transcript,
+      metadata,
+    };
 
-  await createJob({ id, target: payload.target, input, media });
-  void runEvaluation(id);
+    await createJob({ id, target: payload.target, input, media });
+    void runEvaluation(id);
 
-  return Response.json({
-    jobId: id,
-    statusUrl: `/api/evaluate/status/${id}`,
-  });
+    return Response.json({
+      jobId: id,
+      statusUrl: `/api/evaluate/status/${id}`,
+    });
+  } catch (error) {
+    console.error("evaluate/start failed", error);
+    return Response.json(
+      { error: `Failed to start evaluation: ${String(error)}` },
+      { status: 500 }
+    );
+  }
 }
