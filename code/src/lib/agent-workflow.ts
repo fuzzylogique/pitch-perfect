@@ -24,6 +24,7 @@ type AgentResult<T> = {
 type WorkflowInput = {
   request: EvaluationRequest;
   audioMeta?: string;
+  audioAvailable: boolean;
 };
 
 type CombineOutput = {
@@ -91,6 +92,12 @@ async function textAgent(state: typeof WorkflowState.State) {
 async function audioAgent(state: typeof WorkflowState.State) {
   const transcript = state.input.request.transcript?.trim();
   const audioMeta = state.input.audioMeta ?? "No audio metadata.";
+  if (!state.input.audioAvailable) {
+    return {
+      audio: { status: "error", error: "No audio media provided." },
+    };
+  }
+  const transcript = state.input.request.transcript?.trim();
   if (!transcript) {
     return {
       audio: { status: "error", error: "Transcript is missing." },
@@ -212,6 +219,7 @@ export async function runAgentWorkflow(params: {
     input: {
       request: requestWithTranscript,
       audioMeta: audioPrep.audioMeta,
+      audioAvailable: Boolean(audioPrep.audioPath),
     },
   });
 

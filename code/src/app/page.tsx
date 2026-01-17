@@ -198,7 +198,7 @@ export default function Home() {
                   className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3"
                 >
                   <p className="text-xs text-slate-400">
-                    {issue.type} @ {issue.timestampSec}s â€¢ {issue.severity}
+                    {issue.type} @ {issue.timestampSec ?? "n/a"}s - {issue.severity}
                   </p>
                   <p className="mt-1 text-sm text-slate-200">{issue.description}</p>
                 </li>
