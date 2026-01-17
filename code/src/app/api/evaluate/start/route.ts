@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import path from "path";
 import { NextRequest } from "next/server";
 import {
   createJob,
@@ -13,6 +14,7 @@ import {
   EvaluationTarget,
   UploadedMedia,
 } from "@/lib/evaluation-schema";
+import { extractDeckText } from "@/lib/deck-extractor";
 import { evaluateWithGemini } from "@/lib/evaluator";
 
 export const runtime = "nodejs";
@@ -41,6 +43,24 @@ function mediaKind(mimeType: string) {
   return "other";
 }
 
+function isDeckFile(mimeType: string, fileName: string) {
+  const ext = path.extname(fileName).toLowerCase();
+  if (mimeType === "application/pdf" || ext === ".pdf") {
+    return true;
+  }
+  if (
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    ext === ".pptx"
+  ) {
+    return true;
+  }
+  if (mimeType === "application/vnd.ms-powerpoint" || ext === ".ppt") {
+    return true;
+  }
+  return false;
+}
+
 async function parseFormData(request: NextRequest) {
   const formData = await request.formData();
   const target = normalizeTarget(formData.get("target")?.toString() ?? null);
@@ -64,7 +84,23 @@ async function parseFormData(request: NextRequest) {
       files.push(single);
     }
   }
-  return { target, context, deckText, transcript, metadata, files };
+
+  let deckFile: File | null = null;
+  const deckEntry = formData.get("deck");
+  if (deckEntry instanceof File) {
+    deckFile = deckEntry;
+  } else {
+    const deckIndex = files.findIndex(
+      (entry) =>
+        entry instanceof File && isDeckFile(entry.type || "", entry.name)
+    );
+    if (deckIndex >= 0) {
+      deckFile = files[deckIndex] as File;
+      files.splice(deckIndex, 1);
+    }
+  }
+
+  return { target, context, deckText, transcript, metadata, files, deckFile };
 }
 
 async function parseJson(request: NextRequest) {
@@ -76,6 +112,7 @@ async function parseJson(request: NextRequest) {
     transcript: payload.transcript,
     metadata: payload.metadata,
     files: [],
+    deckFile: null,
   };
 }
 
@@ -103,6 +140,32 @@ async function storeUploads(id: string, files: unknown[]) {
   return media;
 }
 
+async function handleDeckFile(id: string, deckFile: File | null) {
+  if (!deckFile) {
+    return { deckText: undefined, warning: undefined };
+  }
+  const buffer = Buffer.from(await deckFile.arrayBuffer());
+  await persistUpload({
+    id,
+    fileName: deckFile.name,
+    mimeType: deckFile.type || "application/octet-stream",
+    buffer,
+  });
+  try {
+    const extraction = await extractDeckText({
+      buffer,
+      mimeType: deckFile.type || "application/octet-stream",
+      originalName: deckFile.name,
+    });
+    return { deckText: extraction.text, warning: extraction.warning };
+  } catch (error) {
+    return {
+      deckText: undefined,
+      warning: `Deck extraction failed: ${String(error)}`,
+    };
+  }
+}
+
 async function runEvaluation(jobId: string) {
   try {
     await updateJobStatus(jobId, "running");
@@ -125,13 +188,22 @@ export async function POST(request: NextRequest) {
     : await parseJson(request);
 
   const id = randomUUID();
+  const deckExtraction = await handleDeckFile(id, payload.deckFile);
   const media = await storeUploads(id, payload.files);
+  const deckText = payload.deckText ?? deckExtraction.deckText;
+  const metadata =
+    deckExtraction.warning
+      ? {
+          ...(payload.metadata ?? {}),
+          deckExtractionWarning: deckExtraction.warning,
+        }
+      : payload.metadata;
   const input: EvaluationRequest = {
     target: payload.target,
     context: payload.context,
-    deckText: payload.deckText,
+    deckText,
     transcript: payload.transcript,
-    metadata: payload.metadata,
+    metadata,
   };
 
   await createJob({ id, target: payload.target, input, media });

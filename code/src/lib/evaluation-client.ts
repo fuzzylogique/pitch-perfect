@@ -26,7 +26,7 @@ export async function startEvaluation(params: {
     formData.set("metadata", JSON.stringify(params.metadata));
   }
   if (params.deckFile) {
-    formData.append("media", params.deckFile);
+    formData.append("deck", params.deckFile);
   }
 
   for (const file of params.files ?? []) {

@@ -12,9 +12,10 @@ Accepts `multipart/form-data` (preferred for media) or JSON.
 Form fields:
 - `target`: `pitch_deck | delivery | audio | video | full`
 - `context`: text
-- `deckText`: text
+- `deckText`: text (optional; use if no deck file)
 - `transcript`: text
 - `metadata`: JSON string
+- `deck`: pitch deck file (PDF or PPTX)
 - `media`: one or more files (video/audio)
 
 Response:
@@ -53,6 +54,7 @@ Response:
 ## Notes
 
 - Media is stored locally in `code/.data/uploads` and results in `code/.data/results`.
+- Deck files are parsed locally into text (PDF/PPTX) before Gemini evaluation.
 - Large files are skipped for inline Gemini input (limit ~4 MB).
 - Jobs are queued in-process; replace with a proper worker for production.
 
