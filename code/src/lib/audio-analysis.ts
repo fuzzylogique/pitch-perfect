@@ -55,7 +55,7 @@ export async function analyzeAudioWithGemini(
       uploadResult.file ?? uploadResult
     );
 
-    let fileRecord = await client.getFile(fileName);
+    let fileRecord = await client.files.get({ name: fileName });
     const start = Date.now();
     while (fileRecord.state === "PROCESSING") {
       if (Date.now() - start > MAX_WAIT_MS) {
@@ -85,6 +85,8 @@ export async function analyzeAudioWithGemini(
         error: "Gemini audio upload response lacked a file URI.",
       };
     }
+
+    console.debug(`[audio-analysis] fileUri=${fileUri}`);
 
     const mimeType = fileRecord.mimeType ?? params.mimeType ?? "audio/mpeg";
     const metadata = params.audioMeta ?? "No metadata provided.";
@@ -117,6 +119,7 @@ export async function analyzeAudioWithGemini(
 
     return { ok: true, summary };
   } catch (error) {
+    console.error("[audio-analysis] failed", error);
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: `Gemini audio analysis failed: ${message}` };
   }
