@@ -17,6 +17,7 @@ export default function Home() {
   const [target, setTarget] = useState<EvaluationTarget>("full");
   const [context, setContext] = useState("");
   const [deckFile, setDeckFile] = useState<File | null>(null);
+  const [deckError, setDeckError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [metadataRaw, setMetadataRaw] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -81,7 +82,22 @@ export default function Home() {
 
   const handleDeckChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0] ?? null;
+    if (!selected) {
+      setDeckFile(null);
+      setDeckError(null);
+      return;
+    }
+    const isPdf =
+      selected.type === "application/pdf" ||
+      selected.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setDeckFile(null);
+      setDeckError("Deck must be a PDF for now.");
+      event.target.value = "";
+      return;
+    }
     setDeckFile(selected);
+    setDeckError(null);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -140,7 +156,7 @@ export default function Home() {
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <form
             onSubmit={handleSubmit}
-            className="fade-in-up flex flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.9)] backdrop-blur"
+            className="fade-in-up flex min-w-0 flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.9)] backdrop-blur"
           >
             <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm font-semibold text-slate-200">
@@ -175,13 +191,18 @@ export default function Home() {
               Pitch Deck File
               <input
                 type="file"
-                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                accept=".pdf,application/pdf"
                 onChange={handleDeckChange}
                 className="mt-2 block w-full text-sm text-slate-300 file:mr-4 file:rounded-full file:border-0 file:bg-slate-200/10 file:px-4 file:py-2 file:text-sm file:text-slate-100 hover:file:bg-slate-200/20"
               />
               <span className="mt-2 block text-xs text-slate-400">
-                Upload a PDF or PowerPoint deck.
+                PDF only for now.
               </span>
+              {deckError && (
+                <span className="mt-2 block text-xs text-red-200">
+                  {deckError}
+                </span>
+              )}
             </label>
 
             <label className="text-sm font-semibold text-slate-200">
@@ -233,7 +254,7 @@ export default function Home() {
             )}
           </form>
 
-          <div className="fade-in-up flex flex-col gap-6">
+          <div className="fade-in-up flex min-w-0 flex-col gap-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">
                 Job Status
@@ -293,7 +314,7 @@ export default function Home() {
               <h2 className="text-base font-semibold text-slate-100">
                 Raw Report
               </h2>
-              <pre className="mt-3 max-h-80 overflow-auto rounded-2xl bg-slate-950/80 p-3 text-xs text-slate-200">
+              <pre className="mt-3 max-h-80 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-950/80 p-3 text-xs text-slate-200">
                 {report ? JSON.stringify(report, null, 2) : "No data yet."}
               </pre>
             </div>
