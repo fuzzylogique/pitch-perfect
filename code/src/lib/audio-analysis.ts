@@ -29,9 +29,12 @@ export async function analyzeAudioWithGemini(
 
   try {
     const client = new GoogleGenAI({ apiKey });
-    const uploadResult = await client.uploadFile(params.audioPath, {
-      mimeType: params.mimeType,
-      displayName: path.basename(params.audioPath),
+    const uploadResult = await client.files.upload({
+      file: params.audioPath,
+      config: {
+        mimeType: params.mimeType,
+        name: path.basename(params.audioPath),
+      },
     });
     const fileName =
       uploadResult.file?.name ?? uploadResult.name ?? uploadResult.fileName;
