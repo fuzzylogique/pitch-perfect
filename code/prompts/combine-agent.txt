@@ -1,0 +1,33 @@
+You are combining independent evaluations into a final report. Use the agent
+outputs to generate a cohesive summary, timeline, and recommendations.
+Return ONLY JSON matching the schema. No markdown, no extra keys.
+
+Schema:
+{
+  "summary": {
+    "overallScore": number,
+    "headline": string,
+    "highlights": string[],
+    "risks": string[]
+  },
+  "timeline": [
+    { "startSec": number, "endSec": number, "category": string, "note": string, "severity": "low"|"medium"|"high" }
+  ],
+  "recommendations": [
+    { "title": string, "priority": "low"|"medium"|"high", "rationale": string, "actionItems": string[] }
+  ]
+}
+
+Rules:
+- Overall score should reflect deck, text, and audio results.
+- Highlights and risks should be concise and specific.
+- Timeline entries should be 6-12 items total.
+
+Deck agent output:
+{{deckAgent}}
+
+Text agent output:
+{{textAgent}}
+
+Audio agent output:
+{{audioAgent}}

@@ -48,16 +48,6 @@ function isDeckFile(mimeType: string, fileName: string) {
   if (mimeType === "application/pdf" || ext === ".pdf") {
     return true;
   }
-  if (
-    mimeType ===
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
-    ext === ".pptx"
-  ) {
-    return true;
-  }
-  if (mimeType === "application/vnd.ms-powerpoint" || ext === ".ppt") {
-    return true;
-  }
   return false;
 }
 
@@ -144,6 +134,15 @@ async function handleDeckFile(id: string, deckFile: File | null) {
   if (!deckFile) {
     return { deckText: undefined, warning: undefined };
   }
+  const isPdf =
+    deckFile.type === "application/pdf" ||
+    deckFile.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) {
+    return {
+      deckText: undefined,
+      warning: "Deck file must be a PDF.",
+    };
+  }
   const buffer = Buffer.from(await deckFile.arrayBuffer());
   await persistUpload({
     id,
@@ -173,7 +172,7 @@ async function runEvaluation(jobId: string) {
     if (!job) {
       return;
     }
-    const result = await evaluateWithGemini(job.input, job.media ?? []);
+    const result = await evaluateWithGemini(jobId, job.input, job.media ?? []);
     const resultPath = await saveResult(jobId, result);
     await updateJob(jobId, { status: "completed", resultPath });
   } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getEvaluationStatus, startEvaluation } from "@/lib/evaluation-client";
 import type { EvaluationReport, EvaluationTarget } from "@/lib/evaluation-schema";
 
@@ -21,11 +21,21 @@ export default function Home() {
   const [transcript, setTranscript] = useState("");
   const [metadataRaw, setMetadataRaw] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [recordedAudio, setRecordedAudio] = useState<File | null>(null);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<"idle" | "recording" | "stopped">(
+    "idle"
+  );
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState("idle");
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   const highlights = useMemo(() => report?.summary?.highlights ?? [], [report]);
   const risks = useMemo(() => report?.summary?.risks ?? [], [report]);
@@ -75,6 +85,32 @@ export default function Home() {
     };
   }, [jobId]);
 
+  useEffect(() => {
+    if (recordingState !== "recording") {
+      return;
+    }
+    const timer = setInterval(() => {
+      setRecordingSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [recordingState]);
+
+  useEffect(() => {
+    if (!recordedAudio) {
+      setRecordedAudioUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(recordedAudio);
+    setRecordedAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [recordedAudio]);
+
+  useEffect(() => {
+    return () => {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? []);
     setFiles(selected);
@@ -100,12 +136,71 @@ export default function Home() {
     setDeckError(null);
   };
 
+  const startRecording = async () => {
+    setRecordingError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setRecordingError("Audio recording is not supported in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        const file = new File([blob], `recording-${Date.now()}.webm`, {
+          type: blob.type,
+        });
+        setRecordedAudio(file);
+        setRecordingState("stopped");
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setRecordingSeconds(0);
+      setRecordingState("recording");
+    } catch (recordingError) {
+      setRecordingError(`Failed to access microphone: ${String(recordingError)}`);
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+  };
+
+  const clearRecording = () => {
+    setRecordedAudio(null);
+    setRecordedAudioUrl(null);
+    setRecordingSeconds(0);
+    setRecordingState("idle");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setReport(null);
     setJobId(null);
     setJobStatus("idle");
+
+    if (deckError) {
+      setError(deckError);
+      return;
+    }
+    if (!deckFile) {
+      setError("Please upload a PDF deck.");
+      return;
+    }
 
     let metadata: Record<string, string> | undefined;
     if (metadataRaw.trim()) {
@@ -119,13 +214,14 @@ export default function Home() {
 
     setIsSubmitting(true);
     try {
+      const allFiles = recordedAudio ? [recordedAudio, ...files] : files;
       const response = await startEvaluation({
         target,
         context: context.trim() || undefined,
         transcript: transcript.trim() || undefined,
         metadata,
         deckFile,
-        files,
+        files: allFiles,
       });
       setJobId(response.jobId);
       setJobStatus("queued");
@@ -238,6 +334,57 @@ export default function Home() {
                 Local uploads only. Gemini inline limit ~4 MB per file.
               </span>
             </label>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-200">Record Audio</p>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span>Timer: {recordingSeconds}s</span>
+                  {recordingState === "recording" && (
+                    <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-emerald-200">
+                      Recording
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  disabled={recordingState === "recording"}
+                  className="rounded-full bg-emerald-400/20 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Start recording
+                </button>
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  disabled={recordingState !== "recording"}
+                  className="rounded-full bg-amber-400/20 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Stop recording
+                </button>
+                <button
+                  type="button"
+                  onClick={clearRecording}
+                  disabled={!recordedAudio}
+                  className="rounded-full bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              </div>
+              {recordingError && (
+                <div className="mt-3 text-xs text-red-200">{recordingError}</div>
+              )}
+              {recordedAudioUrl && (
+                <div className="mt-3">
+                  <audio controls className="w-full" src={recordedAudioUrl} />
+                  <p className="mt-2 text-xs text-slate-400">
+                    Recording ready: {recordedAudio?.name}
+                  </p>
+                </div>
+              )}
+            </div>
 
             <button
               type="submit"

@@ -15,7 +15,7 @@ Form fields:
 - `deckText`: text (optional; use if no deck file)
 - `transcript`: text
 - `metadata`: JSON string
-- `deck`: pitch deck file (PDF or PPTX)
+- `deck`: pitch deck file (PDF only for now)
 - `media`: one or more files (video/audio)
 
 Response:
