@@ -24,8 +24,9 @@ Rules:
 - Highlights and risks should be concise and specific.
 - Timeline entries should be 8-12 items total.
 - If an agent output is null or missing, proceed with the remaining evidence.
-- Provide 4-6 recommendations with 2-4 actionItems each.
-- Provide at least 3 highlights and 3 risks.
+- Provide 6-8 recommendations with 3-5 actionItems each.
+- Provide at least 4 highlights and 4 risks.
+- Recommendations should cover deck, delivery, and audio separately when possible.
 
 Deck agent output:
 {{deckAgent}}

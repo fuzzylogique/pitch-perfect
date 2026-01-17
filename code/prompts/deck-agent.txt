@@ -21,10 +21,10 @@ Rules:
 - Call out inconsistencies or gaps in logic (claims without proof, unclear differentiation).
 - Slide feedback should be actionable and short, as if writing comments in a review.
 - If slide numbers are unknown, still return slideNotes with best-effort numbering.
-- Each category rationale should be 2-3 sentences and include: observation, impact, next action.
-- Provide at least 2 evidence items per category when possible.
-- Provide at least 3 strengths and 3 gaps.
-- Provide at least 6 slideNotes when possible.
+- Each category rationale should be 3-4 sentences and include: observation, impact, next action.
+- Provide at least 3 evidence items per category when possible.
+- Provide at least 4 strengths and 4 gaps.
+- Provide at least 8 slideNotes when possible.
 
 Context:
 {{context}}

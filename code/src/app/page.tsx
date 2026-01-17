@@ -3,7 +3,14 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getEvaluationStatus, startEvaluation } from "@/lib/evaluation-client";
-import type { EvaluationReport, EvaluationTarget } from "@/lib/evaluation-schema";
+import type {
+  AudioEvaluation,
+  CategoryScore,
+  DeliveryEvaluation,
+  EvaluationReport,
+  EvaluationTarget,
+  PitchDeckCritique,
+} from "@/lib/evaluation-schema";
 
 const targets: EvaluationTarget[] = [
   "full",
@@ -40,6 +47,168 @@ export default function Home() {
 
   const highlights = useMemo(() => report?.summary?.highlights ?? [], [report]);
   const risks = useMemo(() => report?.summary?.risks ?? [], [report]);
+
+  const renderCategory = (label: string, category?: CategoryScore) => {
+    if (!category) {
+      return null;
+    }
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-100">{label}</p>
+          <span className="text-xs font-semibold text-slate-300">
+            {category.score} / 100
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-slate-300">{category.rationale}</p>
+        {category.evidence && category.evidence.length > 0 && (
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-400">
+            {category.evidence.map((item, index) => (
+              <li key={`${label}-evidence-${index}`}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
+  const renderDeckFeedback = (deck?: PitchDeckCritique) => {
+    if (!deck) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No deck feedback available yet.
+        </p>
+      );
+    }
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {deck.overallScore} / 100
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {renderCategory("Narrative", deck.narrative)}
+          {renderCategory("Structure", deck.structure)}
+          {renderCategory("Visuals", deck.visuals)}
+          {renderCategory("Clarity", deck.clarity)}
+          {renderCategory("Persuasiveness", deck.persuasiveness)}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              Strengths
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200">
+              {deck.strengths.length === 0 && <li>No strengths listed.</li>}
+              {deck.strengths.map((item, index) => (
+                <li key={`deck-strength-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              Gaps
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200">
+              {deck.gaps.length === 0 && <li>No gaps listed.</li>}
+              {deck.gaps.map((item, index) => (
+                <li key={`deck-gap-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        {deck.slideNotes && deck.slideNotes.length > 0 && (
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              Slide Notes
+            </p>
+            <ul className="mt-2 space-y-2 text-sm text-slate-200">
+              {deck.slideNotes.map((note, index) => (
+                <li
+                  key={`slide-note-${index}`}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3"
+                >
+                  <p className="text-xs text-slate-400">
+                    Slide {note.slideNumber ?? index + 1}: {note.title ?? "Untitled"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-200">{note.feedback}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDeliveryFeedback = (delivery?: DeliveryEvaluation) => {
+    if (!delivery) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No delivery feedback available yet.
+        </p>
+      );
+    }
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {delivery.overallScore} / 100
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {renderCategory("Clarity", delivery.clarity)}
+          {renderCategory("Pacing", delivery.pacing)}
+          {renderCategory("Confidence", delivery.confidence)}
+          {renderCategory("Engagement", delivery.engagement)}
+          {renderCategory("Vocal Delivery", delivery.vocalDelivery)}
+          {renderCategory("Body Language", delivery.bodyLanguage)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAudioFeedback = (audio?: AudioEvaluation) => {
+    if (!audio) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No audio feedback available yet.
+        </p>
+      );
+    }
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {audio.overallScore} / 100
+        </div>
+        {audio.metrics && (
+          <div className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-slate-300 sm:grid-cols-2">
+            <div>paceWpm: {audio.metrics.paceWpm ?? "n/a"}</div>
+            <div>fillerWordsPerMin: {audio.metrics.fillerWordsPerMin ?? "n/a"}</div>
+            <div>silenceRatio: {audio.metrics.silenceRatio ?? "n/a"}</div>
+            <div>avgVolumeDb: {audio.metrics.avgVolumeDb ?? "n/a"}</div>
+          </div>
+        )}
+        {audio.issues.length > 0 && (
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              Issues &amp; Strengths
+            </p>
+            <ul className="mt-2 space-y-2 text-sm text-slate-200">
+              {audio.issues.map((issue, index) => (
+                <li
+                  key={`audio-issue-${index}`}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3"
+                >
+                  <p className="text-xs text-slate-400">
+                    {issue.type} @ {issue.timestampSec}s â€¢ {issue.severity}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-200">{issue.description}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!jobId) {
@@ -497,6 +666,27 @@ export default function Home() {
                   Start an evaluation to see results.
                 </p>
               )}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Deck Feedback
+              </h2>
+              {renderDeckFeedback(report?.pitchDeck)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Delivery Feedback
+              </h2>
+              {renderDeliveryFeedback(report?.delivery)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Audio Feedback
+              </h2>
+              {renderAudioFeedback(report?.audio)}
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">

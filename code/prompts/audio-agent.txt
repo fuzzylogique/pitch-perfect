@@ -21,8 +21,9 @@ Rules:
 - If precise timestamps are unknown, use best-guess positions based on transcript flow.
 - If volume data is unavailable, estimate and mention uncertainty in issue descriptions.
 - Flag monotone delivery, rushed sections, and weak pauses when supported by transcript cues.
-- Provide 4-8 issues when possible.
+- Provide 6-10 issues when possible.
 - Each issue description should include: what happened, why it matters, and a concrete fix.
+- Include at least 3 positive observations in the issues list (tag as type "strength").
 
 Audio metadata:
 {{audioMeta}}
