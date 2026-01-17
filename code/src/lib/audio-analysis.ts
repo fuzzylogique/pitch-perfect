@@ -39,6 +39,11 @@ export async function analyzeAudioWithGemini(
       return { ok: false, error: "Gemini audio upload returned no file name." };
     }
 
+    console.debug(
+      `[audio-analysis] uploaded ${fileName}`,
+      uploadResult.file ?? uploadResult
+    );
+
     let fileRecord = await client.getFile(fileName);
     const start = Date.now();
     while (fileRecord.state === "PROCESSING") {
@@ -50,6 +55,9 @@ export async function analyzeAudioWithGemini(
       }
       await sleep(POLL_INTERVAL_MS);
       fileRecord = await client.getFile(fileName);
+      console.debug(
+        `[audio-analysis] polling ${fileName} state=${fileRecord.state}`
+      );
     }
 
     if (fileRecord.state !== "ACTIVE") {

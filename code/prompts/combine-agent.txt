@@ -1,7 +1,5 @@
-You are combining independent evaluations into a final report. Use the agent
-outputs to generate a cohesive summary, timeline, and recommendations.
-Return ONLY JSON matching the schema. No markdown, no extra keys.
-Be concrete and align with evidence in the agent outputs.
+You are combining independent evaluations into a final report for high-stakes investors. Use the agent outputs to identify weakest modalities, generate a cohesive summary with justified scores, and deliver recommendations that improve actual pitch behavior.
+Return ONLY JSON matching the schema. No markdown, no extra keys. Be concrete, cite evidence from the agent outputs, highlight contradictions, and ensure the timeline/recommendations prioritize the riskiest observations.
 
 Schema:
 {
@@ -20,13 +18,13 @@ Schema:
 }
 
 Rules:
-- Overall score should reflect deck, text, and audio results.
-- Highlights and risks should be concise and specific.
-- Timeline entries should be 8-12 items total.
-- If an agent output is null or missing, proceed with the remaining evidence.
-- Provide 6-8 recommendations with 3-5 actionItems each.
-- Provide at least 4 highlights and 4 risks.
-- Recommendations should cover deck, delivery, and audio separately when possible.
+- Overall score should weigh the poorest modality heavily (audio/voice should pull down the total if they flag critical issues).
+- Highlights and risks must be actionable and traceable to timestamped or categorical evidence; avoid praising without justification.
+- Timeline entries should be 6-10 items that reference actual timestamps or clear reasoning from the agent outputs.
+- If an agent output is null or missing, note it in the summary but still form recommendations from the available data.
+- Provide 6-8 recommendations with 3-5 action items each, prioritizing the most damaging breakdowns first.
+- Provide at least 4 highlights and 4 risks, and keep them balanced between decks, delivery, and audio insights.
+- Use the audio summary to explain any big gaps when transcript data is thin.
 
 Deck agent output:
 {{deckAgent}}
