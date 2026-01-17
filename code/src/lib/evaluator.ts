@@ -1,12 +1,12 @@
 import { promises as fs } from "fs";
+import { GoogleGenAI, createPartFromBase64, createPartFromText } from "@google/genai";
 import {
   EvaluationReport,
   EvaluationRequest,
   UploadedMedia,
 } from "./evaluation-schema";
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash-lite";
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
 const MAX_INLINE_BYTES = 4_000_000;
 
 function buildPrompt(request: EvaluationRequest, media: UploadedMedia[]) {
@@ -156,59 +156,49 @@ async function callGemini(params: {
     return { ok: false, error: "GEMINI_API_KEY is not set." } as const;
   }
 
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-    { text: params.prompt },
-  ];
+  const parts = [createPartFromText(params.prompt)];
 
   for (const item of params.media) {
     try {
       const buffer = await fs.readFile(item.path);
       if (buffer.byteLength > MAX_INLINE_BYTES) {
-        parts.push({
-          text: `Media '${item.originalName}' skipped due to size (${buffer.byteLength} bytes).`,
-        });
+        parts.push(
+          createPartFromText(
+            `Media '${item.originalName}' skipped due to size (${buffer.byteLength} bytes).`
+          )
+        );
         continue;
       }
-      parts.push({
-        inlineData: {
-          mimeType: item.mimeType,
-          data: buffer.toString("base64"),
-        },
-      });
+      parts.push(createPartFromBase64(buffer.toString("base64"), item.mimeType));
     } catch (error) {
-      parts.push({
-        text: `Failed to read media '${item.originalName}': ${String(error)}`,
-      });
+      parts.push(
+        createPartFromText(
+          `Failed to read media '${item.originalName}': ${String(error)}`
+        )
+      );
     }
   }
 
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}/${params.model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 2048,
-          responseMimeType: "application/json",
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const body = await response.text();
-    return { ok: false, error: `Gemini error: ${response.status} ${body}` } as const;
+  try {
+    const client = new GoogleGenAI({ apiKey });
+    const response = await client.models.generateContent({
+      model: params.model,
+      contents: parts,
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+        responseMimeType: "application/json",
+      },
+    });
+    return { ok: true, text: response.text ?? "" } as const;
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error
+      ? String((error as { status?: unknown }).status)
+      : null;
+    const message = error instanceof Error ? error.message : String(error);
+    const detail = status ? ` (status ${status})` : "";
+    return { ok: false, error: `Gemini error${detail}: ${message}` } as const;
   }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts
-    ?.map((part: { text?: string }) => part.text ?? "")
-    .join("\n");
-
-  return { ok: true, text: text ?? "" } as const;
 }
 
 export async function evaluateWithGemini(
