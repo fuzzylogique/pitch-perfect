@@ -104,3 +104,11 @@ PitchCoach helps users quickly improve their presentation skills by analyzing bo
 - Client-side React app and backend deployed on DigitalOcean
 - Presigned uploads handle large media reliably
 - Static hosting compatible for frontend
+
+## Running the app
+
+To run the app,
+
+```bash
+cd code && npm run dev
+```
