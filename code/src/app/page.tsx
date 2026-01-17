@@ -415,6 +415,15 @@ export default function Home() {
               {isSubmitting ? "Starting..." : "Start Evaluation"}
             </button>
 
+            {(isSubmitting || (jobStatus !== "idle" && jobStatus !== "completed" && jobStatus !== "failed")) && (
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-200">
+                <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                <span>
+                  {isSubmitting ? "Submitting inputs..." : `Processing: ${jobStatus}`}
+                </span>
+              </div>
+            )}
+
             {error && (
               <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                 {error}
