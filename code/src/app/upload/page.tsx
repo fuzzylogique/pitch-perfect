@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Image from "next/image";
 import { Navbar } from "@/app/components/Navbar";
 
 // Main Upload Page Component
