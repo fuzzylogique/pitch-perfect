@@ -6,6 +6,7 @@ export async function startEvaluation(params: {
   deckText?: string;
   transcript?: string;
   metadata?: Record<string, string>;
+  deckFile?: File | null;
   files?: File[];
 }) {
   const formData = new FormData();
@@ -23,6 +24,9 @@ export async function startEvaluation(params: {
   }
   if (params.metadata) {
     formData.set("metadata", JSON.stringify(params.metadata));
+  }
+  if (params.deckFile) {
+    formData.append("media", params.deckFile);
   }
 
   for (const file of params.files ?? []) {

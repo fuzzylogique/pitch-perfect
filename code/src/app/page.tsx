@@ -16,7 +16,7 @@ const targets: EvaluationTarget[] = [
 export default function Home() {
   const [target, setTarget] = useState<EvaluationTarget>("full");
   const [context, setContext] = useState("");
-  const [deckText, setDeckText] = useState("");
+  const [deckFile, setDeckFile] = useState<File | null>(null);
   const [transcript, setTranscript] = useState("");
   const [metadataRaw, setMetadataRaw] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -79,6 +79,11 @@ export default function Home() {
     setFiles(selected);
   };
 
+  const handleDeckChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] ?? null;
+    setDeckFile(selected);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -101,9 +106,9 @@ export default function Home() {
       const response = await startEvaluation({
         target,
         context: context.trim() || undefined,
-        deckText: deckText.trim() || undefined,
         transcript: transcript.trim() || undefined,
         metadata,
+        deckFile,
         files,
       });
       setJobId(response.jobId);
@@ -127,7 +132,7 @@ export default function Home() {
             Gemini-powered critique for decks, delivery, audio, and video.
           </h1>
           <p className="max-w-2xl text-base text-slate-300">
-            Upload media or paste your pitch text. Jobs run asynchronously and
+            Upload your pitch deck plus media. Jobs run asynchronously and
             results stream back into the report panel.
           </p>
         </header>
@@ -167,13 +172,16 @@ export default function Home() {
             </label>
 
             <label className="text-sm font-semibold text-slate-200">
-              Deck Text
-              <textarea
-                value={deckText}
-                onChange={(event) => setDeckText(event.target.value)}
-                placeholder="Paste slide text or notes."
-                className="mt-2 h-32 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm text-slate-100"
+              Pitch Deck File
+              <input
+                type="file"
+                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                onChange={handleDeckChange}
+                className="mt-2 block w-full text-sm text-slate-300 file:mr-4 file:rounded-full file:border-0 file:bg-slate-200/10 file:px-4 file:py-2 file:text-sm file:text-slate-100 hover:file:bg-slate-200/20"
               />
+              <span className="mt-2 block text-xs text-slate-400">
+                Upload a PDF or PowerPoint deck.
+              </span>
             </label>
 
             <label className="text-sm font-semibold text-slate-200">
@@ -197,7 +205,7 @@ export default function Home() {
             </label>
 
             <label className="text-sm font-semibold text-slate-200">
-              Upload Media
+              Upload Audio/Video
               <input
                 type="file"
                 accept="video/*,audio/*"
