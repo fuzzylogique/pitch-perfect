@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Navbar } from "@/app/components/Navbar";
+import { useRouter } from "next/navigation";
 
 type FileWithPreview = {
   file: File;
@@ -10,6 +11,8 @@ type FileWithPreview = {
 };
 
 export default function Home() {
+  const router = useRouter();
+
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [title, setTitle] = useState("");
@@ -123,10 +126,10 @@ export default function Home() {
       <Navbar
         brandName="Pitch Perfect"
         navItems={[
-          { label: "Home", href: "/" },
-          { label: "About", href: "/about" },
-          { label: "Demo", href: "/demo" },
-          { label: "Login", href: "/login" },
+          { label: "Home", onClick: () => router.push("/") },
+          { label: "About", onClick: () => router.push("/") },
+          { label: "Analyze", onClick: () => router.push("/") },
+          { label: "Login", onClick: () => router.push("/") },
         ]}
         onThemeToggle={() => setIsDark(!isDark)}
         isDarkMode={isDark}

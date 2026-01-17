@@ -89,7 +89,8 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px var(--accent-blue-glow);
   }
   50% {
@@ -148,4 +149,8 @@ body {
 .dropzone-active {
   border-color: var(--accent-blue) !important;
   background-color: var(--accent-blue-subtle) !important;
+}
+
+button {
+  cursor: pointer;
 }
