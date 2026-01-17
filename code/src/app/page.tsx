@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { fancyFont, poppins } from "@/app/fonts";
 
 export default function Home() {
   useEffect(() => {
@@ -141,13 +142,18 @@ export default function Home() {
               className="text-4xl font-bold text-gray-900 mb-4 
                      opacity-0 transition-opacity duration-700 fade-in"
             >
-              Welcome to Pitch Perfect
+              Welcome to{" "}
+              <span
+                className={`${fancyFont.className} text-blue-600 font-semibold hover:underline underline-offset-4 decoration-2 text-blue-500`}
+              >
+                Pitch Perfect
+              </span>
             </h2>
 
             {/* Paragraph — fades in SECOND */}
             <p
-              className="text-gray-600 text-lg 
-                    opacity-0 transition-opacity duration-700 delay-200 fade-in"
+              className={`${poppins.className} text-gray-600 text-lg 
+                    opacity-0 transition-opacity duration-700 delay-200 fade-in`}
             >
               Your AI-powered personal presentation coach. Upload a presentation
               deck and record or upload a short pitch video. We'll give you
