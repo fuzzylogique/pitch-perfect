@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Navbar } from "@/app/components/Navbar";
+import { HeroSection } from "@/app/components/HeroSection";
 import { useRouter } from "next/navigation";
 
 type FileWithPreview = {
@@ -135,8 +136,11 @@ export default function Home() {
         isDarkMode={isDark}
       />
 
+      {/* Hero Section */}
+      <HeroSection />
+
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-10">
+      <main id="analyze" className="max-w-4xl mx-auto px-6 py-10">
         <div className="animate-fade-in">
           {/* Title Section */}
           <div className="text-center mb-10">
