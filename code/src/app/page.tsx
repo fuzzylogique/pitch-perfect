@@ -10,6 +10,7 @@ import type {
   EvaluationReport,
   EvaluationTarget,
   PitchDeckCritique,
+  VoiceEvaluation,
 } from "@/lib/evaluation-schema";
 
 const targets: EvaluationTarget[] = [
@@ -206,6 +207,42 @@ export default function Home() {
             </ul>
           </div>
         )}
+    </div>
+  );
+};
+
+  const renderVoiceFeedback = (voice?: VoiceEvaluation) => {
+    if (!voice) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No voice-focused feedback available yet.
+        </p>
+      );
+    }
+    const categoryEntries: Array<[string, CategoryScore]> = [
+      ["Tone", voice.tone],
+      ["Cadence", voice.cadence],
+      ["Confidence", voice.confidence],
+      ["Clarity", voice.clarity],
+      ["Articulation", voice.articulation],
+      ["Vocabulary", voice.vocabulary],
+      ["Conviction", voice.conviction],
+    ];
+    const averageScore = Math.round(
+      categoryEntries.reduce((sum, [, category]) => sum + category.score, 0) /
+        categoryEntries.length
+    );
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {averageScore} / 100
+        </div>
+        <p className="text-xs text-slate-400">{voice.overallSummary}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {categoryEntries.map(([label, category]) =>
+            renderCategory(label, category)
+          )}
+        </div>
       </div>
     );
   };
@@ -687,6 +724,13 @@ export default function Home() {
                 Audio Feedback
               </h2>
               {renderAudioFeedback(report?.audio)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Voice Feedback
+              </h2>
+              {renderVoiceFeedback(report?.voice)}
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">

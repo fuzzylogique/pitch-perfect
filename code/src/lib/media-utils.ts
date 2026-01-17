@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 type AudioPrepResult = {
   audioPath?: string;
   audioMeta?: string;
+  mimeType?: string;
   warnings: string[];
 };
 
@@ -63,6 +64,7 @@ export async function prepareAudioForAgent(params: {
     return {
       audioPath: audio.path,
       audioMeta: `source=audio file=${path.basename(audio.path)} sizeBytes=${audio.sizeBytes} ${durationText}`,
+      mimeType: audio.mimeType || "audio/mpeg",
       warnings,
     };
   }
@@ -91,6 +93,7 @@ export async function prepareAudioForAgent(params: {
   return {
     audioPath: outputPath,
     audioMeta: `source=video file=${path.basename(video.path)} extractedAudio=wav sizeBytes=${stats.size} ${durationText}`,
+    mimeType: "audio/wav",
     warnings,
   };
 }

@@ -11,6 +11,7 @@ export interface EvaluationRequest {
   context?: string;
   deckText?: string;
   transcript?: string;
+  audioSummary?: string;
   metadata?: Record<string, string>;
 }
 
@@ -85,6 +86,17 @@ export interface VideoEvaluation {
   };
 }
 
+export interface VoiceEvaluation {
+  tone: CategoryScore;
+  cadence: CategoryScore;
+  confidence: CategoryScore;
+  clarity: CategoryScore;
+  articulation: CategoryScore;
+  vocabulary: CategoryScore;
+  conviction: CategoryScore;
+  overallSummary: string;
+}
+
 export interface TimelineEvent {
   startSec: number;
   endSec: number;
@@ -118,6 +130,7 @@ export interface EvaluationReport {
   delivery?: DeliveryEvaluation;
   audio?: AudioEvaluation;
   video?: VideoEvaluation;
+  voice?: VoiceEvaluation;
   transcript?: TranscriptInfo;
   timeline?: TimelineEvent[];
   recommendations: Recommendation[];

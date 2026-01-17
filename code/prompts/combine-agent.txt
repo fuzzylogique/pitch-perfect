@@ -36,3 +36,6 @@ Text agent output:
 
 Audio agent output:
 {{audioAgent}}
+
+Voice agent output:
+{{voiceAgent}}

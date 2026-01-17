@@ -69,6 +69,7 @@ export function buildEvaluationRequest(
     context: request.context,
     deckText: request.deckText,
     transcript: request.transcript,
+    audioSummary: request.audioSummary,
     metadata: request.metadata,
   };
 }
