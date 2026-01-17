@@ -20,6 +20,9 @@ Rules:
 - Evidence arrays must cite exact phrases or transcript moments.
 - Evaluate clarity of story arc, credibility of claims, and investor-fit language.
 - Call out filler phrases, hedging, and weak close if present.
+- Each category rationale should be 2-3 sentences and include: observation, impact, next action.
+- Provide at least 2 evidence items per category when possible.
+- If evidence is thin, state "insufficient evidence" and keep the score near 55.
 
 Context:
 {{context}}

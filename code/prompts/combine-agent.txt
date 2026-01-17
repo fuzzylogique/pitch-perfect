@@ -22,8 +22,10 @@ Schema:
 Rules:
 - Overall score should reflect deck, text, and audio results.
 - Highlights and risks should be concise and specific.
-- Timeline entries should be 6-12 items total.
+- Timeline entries should be 8-12 items total.
 - If an agent output is null or missing, proceed with the remaining evidence.
+- Provide 4-6 recommendations with 2-4 actionItems each.
+- Provide at least 3 highlights and 3 risks.
 
 Deck agent output:
 {{deckAgent}}
