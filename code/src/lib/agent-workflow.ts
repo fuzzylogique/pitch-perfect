@@ -72,15 +72,15 @@ async function deckAgent(state: typeof WorkflowState.State) {
 }
 
 async function textAgent(state: typeof WorkflowState.State) {
-  const transcript = state.input.request.transcript?.trim();
-  if (!transcript) {
+  const transcriptText = state.input.request.transcript?.trim();
+  if (!transcriptText) {
     return {
       text: { status: "error", error: "Transcript is missing." },
     };
   }
   const prompt = await renderPrompt("text-agent", {
     context: state.input.request.context,
-    transcript,
+    transcript: transcriptText,
   });
   const result = await callGeminiJson<DeliveryEvaluation>({ prompt });
   if (!result.ok) {
@@ -90,22 +90,21 @@ async function textAgent(state: typeof WorkflowState.State) {
 }
 
 async function audioAgent(state: typeof WorkflowState.State) {
-  const transcript = state.input.request.transcript?.trim();
+  const audioTranscript = state.input.request.transcript?.trim();
   const audioMeta = state.input.audioMeta ?? "No audio metadata.";
   if (!state.input.audioAvailable) {
     return {
       audio: { status: "error", error: "No audio media provided." },
     };
   }
-  const transcript = state.input.request.transcript?.trim();
-  if (!transcript) {
+  if (!audioTranscript) {
     return {
       audio: { status: "error", error: "Transcript is missing." },
     };
   }
   const prompt = await renderPrompt("audio-agent", {
     audioMeta,
-    transcript,
+    transcript: audioTranscript,
   });
   const result = await callGeminiJson<AudioEvaluation>({ prompt });
   if (!result.ok) {
