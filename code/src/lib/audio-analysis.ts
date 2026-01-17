@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 
@@ -29,11 +30,18 @@ export async function analyzeAudioWithGemini(
 
   try {
     const client = new GoogleGenAI({ apiKey });
+    const baseName = path
+      .basename(params.audioPath)
+      .replace(/[^a-zA-Z0-9._-]/g, "_");
+    const shortName =
+      baseName.length <= 32
+        ? baseName
+        : `${baseName.slice(0, 24)}-${randomUUID().slice(0, 8)}`;
     const uploadResult = await client.files.upload({
       file: params.audioPath,
       config: {
         mimeType: params.mimeType,
-        name: path.basename(params.audioPath),
+        name: shortName,
       },
     });
     const fileName =
