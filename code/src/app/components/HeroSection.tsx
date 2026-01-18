@@ -21,7 +21,7 @@ const HeroSection: React.FC = () => {
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[var(--text-primary)] leading-tight">
               Master Your{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--accent-blue)] to-purple-500">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-lighter)]">
                 Pitch
               </span>
               <br />
@@ -29,9 +29,9 @@ const HeroSection: React.FC = () => {
             </h1>
 
             <p className="text-lg text-[var(--text-secondary)] max-w-lg">
-              Transform your presentation skills with real-time AI analysis.
-              Get actionable insights on pacing, clarity, and delivery to
-              captivate your audience every time.
+              Transform your presentation skills with real-time AI analysis. Get
+              actionable insights on pacing, clarity, and delivery to captivate
+              your audience every time.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-4">
@@ -41,44 +41,19 @@ const HeroSection: React.FC = () => {
               >
                 Start Analyzing
               </a>
-              <button className="px-8 py-4 rounded-lg border border-[var(--border-secondary)] text-[var(--text-primary)] font-semibold hover:bg-[var(--bg-secondary)] transition-all duration-200">
-                Watch Demo
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="flex gap-8 pt-8 border-t border-[var(--border-primary)]">
-              <div>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">
-                  10K+
-                </div>
-                <div className="text-sm text-[var(--text-tertiary)]">
-                  Pitches Analyzed
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">
-                  95%
-                </div>
-                <div className="text-sm text-[var(--text-tertiary)]">
-                  Improvement Rate
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">
-                  4.9/5
-                </div>
-                <div className="text-sm text-[var(--text-tertiary)]">
-                  User Rating
-                </div>
-              </div>
+              <a
+                href="/learn-more"
+                className="px-8 py-4 rounded-lg border border-[var(--border-secondary)] text-[var(--text-primary)] font-semibold hover:bg-[var(--bg-secondary)] transition-all duration-200"
+              >
+                Learn More
+              </a>
             </div>
           </div>
 
           {/* Right Side - Animation */}
           <div className="relative h-[500px] hidden lg:block">
             {/* Animated Background Glow */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-blue)]/5 to-purple-500/5 rounded-3xl blur-3xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-blue)]/5 to-[var(--accent-blue-light)]/5 rounded-3xl blur-3xl"></div>
 
             {/* Central Presentation Screen */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-48 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)] shadow-2xl animate-float">
@@ -94,7 +69,7 @@ const HeroSection: React.FC = () => {
                 <div className="h-2 bg-[var(--border-secondary)] rounded w-4/6"></div>
                 <div className="flex gap-2 pt-2">
                   <div className="h-8 w-16 bg-[var(--accent-blue)]/20 rounded"></div>
-                  <div className="h-8 w-20 bg-purple-500/20 rounded"></div>
+                  <div className="h-8 w-20 bg-[var(--accent-blue-light)]/20 rounded"></div>
                 </div>
               </div>
             </div>
@@ -121,7 +96,7 @@ const HeroSection: React.FC = () => {
               {[40, 70, 50, 90, 60, 80, 45, 75, 55].map((height, i) => (
                 <div
                   key={i}
-                  className="w-1.5 bg-gradient-to-t from-[var(--accent-blue)] to-purple-500 rounded-full animate-wave"
+                  className="w-1.5 bg-gradient-to-t from-[var(--accent-blue)] to-[var(--accent-blue-lighter)] rounded-full animate-wave"
                   style={{
                     height: `${height}%`,
                     animationDelay: `${i * 0.1}s`,
@@ -133,7 +108,7 @@ const HeroSection: React.FC = () => {
             {/* AI Feedback Bubble */}
             <div className="absolute bottom-32 left-4 max-w-[200px] bg-[var(--bg-secondary)] rounded-2xl rounded-bl-none border border-[var(--border-primary)] shadow-lg p-4 animate-float-delay-2">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] flex items-center justify-center">
                   <svg
                     className="w-3 h-3 text-white"
                     fill="currentColor"
@@ -197,7 +172,7 @@ const HeroSection: React.FC = () => {
             {/* Sparkle Effects */}
             <div className="absolute top-10 right-32 w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-sparkle"></div>
             <div
-              className="absolute bottom-40 left-32 w-1.5 h-1.5 bg-purple-400 rounded-full animate-sparkle"
+              className="absolute bottom-40 left-32 w-1.5 h-1.5 bg-[var(--accent-blue-light)] rounded-full animate-sparkle"
               style={{ animationDelay: "0.5s" }}
             ></div>
             <div

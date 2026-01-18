@@ -18,9 +18,8 @@ const Navbar: React.FC<NavbarProps> = ({
   brandName = "Pitch Perfect",
   navItems = [
     { label: "Home", onClick: () => {} },
-    { label: "About", onClick: () => {} },
+    { label: "Learn More", onClick: () => {} },
     { label: "Analyze", onClick: () => {} },
-    { label: "Login", onClick: () => {} },
   ],
   onThemeToggle,
   isDarkMode = true,

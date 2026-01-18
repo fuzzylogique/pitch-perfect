@@ -7,24 +7,25 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 1.25rem;
-  background-color: rgba(26, 26, 26, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--navbar-bg);
+  border: 1px solid var(--navbar-border);
   border-radius: 12px;
   width: calc(100% - 3rem);
   max-width: 1080px;
   transition:
     box-shadow 0.3s ease,
-    border-color 0.3s ease;
+    border-color 0.3s ease,
+    background-color 0.3s ease;
   z-index: 50;
   backdrop-filter: blur(10px);
 }
 
 .navbar:hover {
-  border-color: #38bdf8;
+  border-color: var(--accent-blue);
   box-shadow:
-    0 0 20px rgba(14, 165, 233, 0.5),
-    0 0 40px rgba(14, 165, 233, 0.3),
-    inset 0 0 20px rgba(14, 165, 233, 0.1);
+    0 0 20px var(--accent-blue-glow),
+    0 0 40px rgba(59, 130, 246, 0.2),
+    inset 0 0 20px rgba(59, 130, 246, 0.05);
 }
 
 .navbar-brand {
@@ -41,14 +42,16 @@
 .navbar-title {
   font-size: 1.25rem;
   font-weight: 400;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: 0.5px;
+  transition: color 0.3s ease;
 }
 
 .brand-pitch,
 .brand-perfect {
   font-size: 1.5rem;
   font-weight: 600;
+  color: var(--accent-blue);
 }
 
 .navbar-links {
@@ -60,7 +63,7 @@
 }
 
 .nav-link {
-  color: #ffffff;
+  color: var(--text-primary);
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 400;
@@ -68,13 +71,13 @@
 }
 
 .nav-link:hover {
-  color: #0ea5e9;
+  color: var(--accent-blue);
 }
 
 .theme-toggle {
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   padding: 0.4rem;
   display: flex;
@@ -85,7 +88,7 @@
 }
 
 .theme-toggle:hover {
-  color: #0ea5e9;
+  color: var(--accent-blue);
 }
 
 .theme-toggle svg {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Navbar } from "@/app/components/Navbar";
 import { HeroSection } from "@/app/components/HeroSection";
 import { SpeechAnalysisResults } from "@/app/components/SpeechAnalysisResults";
@@ -37,8 +37,17 @@ export default function Home() {
   const [currentAnalysisStep, setCurrentAnalysisStep] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // navbar
+  // Theme management
   const [isDark, setIsDark] = useState(true);
+
+  // Apply theme class to document
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+    }
+  }, [isDark]);
 
   const audioTypes = ["audio/mpeg", "audio/mp3", "audio/wav", "video/mp4"];
   const pdfTypes = ["application/pdf"];
@@ -232,7 +241,7 @@ export default function Home() {
     }
     if (type === "audio") {
       return (
-        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
         </svg>
       );
@@ -251,15 +260,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] pt-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] pt-24 transition-colors duration-300">
       {/* Navbar */}
       <Navbar
         brandName="Pitch Perfect"
         navItems={[
           { label: "Home", onClick: () => router.push("/") },
-          { label: "About", onClick: () => router.push("/") },
-          { label: "Analyze", onClick: () => router.push("/") },
-          { label: "Login", onClick: () => router.push("/") },
+          { label: "Learn More", onClick: () => router.push("/learn-more") },
+          { label: "Analyze", onClick: () => { document.getElementById('analyze')?.scrollIntoView({ behavior: 'smooth' }); } },
         ]}
         onThemeToggle={() => setIsDark(!isDark)}
         isDarkMode={isDark}
@@ -287,7 +295,7 @@ export default function Home() {
             {/* Step 1: Upload Section */}
             <section className="animate-fade-in-delay-1">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 flex items-center justify-center text-sm font-semibold text-white">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] flex items-center justify-center text-sm font-semibold text-white">
                   1
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
@@ -327,7 +335,7 @@ export default function Home() {
                   {audioVideoFile ? (
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        audioVideoFile.type === "audio" ? "bg-purple-500/10" : "bg-blue-500/10"
+                        audioVideoFile.type === "audio" ? "bg-blue-500/10" : "bg-blue-500/10"
                       }`}>
                         {getFileIcon(audioVideoFile.type)}
                       </div>
@@ -393,7 +401,7 @@ export default function Home() {
                     ${pdfFile
                       ? "border-green-500/50 bg-green-500/5 cursor-default"
                       : isDragging
-                        ? "border-purple-500 bg-purple-500/10 cursor-pointer"
+                        ? "border-[var(--accent-blue)] bg-[var(--accent-blue-subtle)] cursor-pointer"
                         : "border-[var(--border-secondary)] bg-[var(--bg-secondary)] hover:border-[var(--border-focus)] hover:bg-[var(--bg-tertiary)] cursor-pointer"
                     }
                   `}
@@ -426,7 +434,7 @@ export default function Home() {
                   ) : (
                     <div className="text-center">
                       <div className="mx-auto w-12 h-12 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6 text-[var(--accent-blue-light)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
@@ -475,7 +483,7 @@ export default function Home() {
             {/* Step 2: Details Section */}
             <section className="animate-fade-in-delay-2">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 flex items-center justify-center text-sm font-semibold text-white">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] flex items-center justify-center text-sm font-semibold text-white">
                   2
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
@@ -525,7 +533,7 @@ export default function Home() {
             {/* Step 3: Analyze Section */}
             <section className="animate-fade-in-delay-3">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 flex items-center justify-center text-sm font-semibold text-white">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] flex items-center justify-center text-sm font-semibold text-white">
                   3
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
@@ -535,7 +543,7 @@ export default function Home() {
 
               {/* What will be analyzed info */}
               {!analysisComplete && !isAnalyzing && files.length > 0 && (
-                <div className="mb-4 p-4 rounded-lg border bg-gradient-to-r from-[var(--accent-blue)]/10 to-purple-500/10 border-[var(--accent-blue)]/20">
+                <div className="mb-4 p-4 rounded-lg border bg-[var(--accent-blue-subtle)] border-[var(--accent-blue)]/20">
                   <div className="flex items-start gap-3">
                     <svg className="w-5 h-5 mt-0.5 text-[var(--accent-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -551,7 +559,7 @@ export default function Home() {
                         )}
                         {pdfFile && (
                           <li className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue-light)]"></span>
                             <strong>Slide Analysis:</strong> Content structure, text density, clarity, and AI suggestions
                           </li>
                         )}
@@ -642,7 +650,7 @@ export default function Home() {
                     </div>
                     <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 transition-all duration-300 ease-out"
+                        className="h-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] transition-all duration-300 ease-out"
                         style={{ width: `${Math.min(analysisProgress, 100)}%` }}
                       />
                     </div>
@@ -676,7 +684,7 @@ export default function Home() {
                         relative px-8 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2
                         ${
                           files.length > 0 && !isAnalyzing
-                            ? "bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 text-white hover:opacity-90 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+                            ? "bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-blue-light)] text-white hover:opacity-90 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
                             : "bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed"
                         }
                       `}
@@ -751,8 +759,8 @@ export default function Home() {
                   <div>
                     {audioResult && (
                       <div className="flex items-center gap-2 mb-4 mt-8">
-                        <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-                          <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-6 h-6 rounded-full bg-[var(--accent-blue-light)]/20 flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-[var(--accent-blue-light)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                         </div>

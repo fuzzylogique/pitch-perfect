@@ -27,12 +27,12 @@ interface PDFAnalysisResultsProps {
 
 const COLORS = {
   primary: "#3b82f6",
-  secondary: "#8b5cf6",
+  secondary: "#60a5fa",
   success: "#10b981",
   warning: "#f59e0b",
   error: "#ef4444",
   cyan: "#06b6d4",
-  chart: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ef4444"],
+  chart: ["#3b82f6", "#10b981", "#f59e0b", "#60a5fa", "#06b6d4", "#ef4444"],
 };
 
 type TabType = "overview" | "slides" | "content" | "insights";
@@ -200,7 +200,7 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header with Score */}
-      <div className="bg-gradient-to-r from-purple-500/20 to-[var(--accent-blue)]/20 rounded-2xl p-6 border border-purple-500/30">
+      <div className="bg-gradient-to-r from-[var(--accent-blue)]/20 to-[var(--accent-blue-light)]/20 rounded-2xl p-6 border border-[var(--accent-blue)]/30">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <div className="relative">
@@ -260,8 +260,8 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
@@ -333,7 +333,7 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id
-                ? "bg-purple-500 text-white"
+                ? "bg-[var(--accent-blue)] text-white"
                 : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]"
             }`}
           >
@@ -501,7 +501,7 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
                     onClick={() => setSelectedSlide(slide.pageNumber === selectedSlide ? null : slide.pageNumber)}
                     className={`p-4 rounded-lg border text-left transition-all ${
                       selectedSlide === slide.pageNumber
-                        ? "border-purple-500 bg-purple-500/10"
+                        ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/10"
                         : "border-[var(--border-primary)] bg-[var(--bg-tertiary)] hover:border-[var(--border-focus)]"
                     }`}
                   >
@@ -534,7 +534,7 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
 
             {/* Selected Slide Content */}
             {selectedSlide && (
-              <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30">
+              <div className="p-4 bg-[var(--accent-blue)]/10 rounded-lg border border-[var(--accent-blue)]/30">
                 <h5 className="font-medium text-[var(--text-primary)] mb-3">
                   Slide {selectedSlide} Content
                 </h5>
@@ -567,7 +567,7 @@ export function PDFAnalysisResults({ data, onReset }: PDFAnalysisResultsProps) {
                             {stats?.wordCount || 0} words
                           </span>
                           {(stats?.bulletPoints || 0) > 0 && (
-                            <span className="text-xs px-2 py-1 rounded bg-purple-500/20 text-purple-400">
+                            <span className="text-xs px-2 py-1 rounded bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]">
                               {stats?.bulletPoints} bullets
                             </span>
                           )}

@@ -32,12 +32,12 @@ const FILLER_WORDS = new Set(["um", "uh", "like", "so", "actually", "you know"])
 
 const COLORS = {
   primary: "#3b82f6",
-  secondary: "#8b5cf6",
+  secondary: "#60a5fa",
   success: "#10b981",
   warning: "#f59e0b",
   error: "#ef4444",
   cyan: "#06b6d4",
-  chart: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"],
+  chart: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#60a5fa", "#06b6d4"],
   speed: {
     "Too Slow": "#ef4444",
     "Ideal": "#10b981",
@@ -254,7 +254,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header with Score */}
-      <div className="bg-gradient-to-r from-[var(--accent-blue)]/20 to-purple-500/20 rounded-2xl p-6 border border-[var(--accent-blue)]/30">
+      <div className="bg-gradient-to-r from-[var(--accent-blue)]/20 to-[var(--accent-blue-light)]/20 rounded-2xl p-6 border border-[var(--accent-blue)]/30">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <div className="relative">
@@ -330,8 +330,8 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
 
         <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             </div>
