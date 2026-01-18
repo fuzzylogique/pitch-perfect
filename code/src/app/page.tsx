@@ -68,12 +68,19 @@ export default function Home() {
   const hasVoiceResults =
     Boolean(report?.voice) || Boolean(report?.voiceNarrations?.length);
 
-  const renderCategory = (label: string, category?: CategoryScore) => {
+  const renderCategory = (
+    label: string,
+    category?: CategoryScore,
+    keyValue?: string
+  ) => {
     if (!category) {
       return null;
     }
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+      <div
+        key={keyValue ?? label}
+        className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
+      >
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-slate-100">{label}</p>
           <span className="text-xs font-semibold text-slate-300">
@@ -259,7 +266,7 @@ export default function Home() {
         <p className="text-xs text-slate-400">{voice.overallSummary}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {categoryEntries.map(([label, category]) =>
-            renderCategory(label, category)
+            renderCategory(label, category, label)
           )}
         </div>
     </div>
@@ -287,7 +294,7 @@ export default function Home() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {categoryEntries.map(([label, category]) =>
-            renderCategory(label, category)
+            renderCategory(label, category, label)
           )}
         </div>
       </div>
