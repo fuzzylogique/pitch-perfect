@@ -1,6 +1,6 @@
-# PitchCoach
+# PitchPerfect
 
-PitchCoach is an AI-powered web application that provides actionable feedback on presentation decks and pitch videos. Users upload a PDF presentation and record or upload a short pitch video. The system performs multimodal analysis of deck content and speech delivery, then produces timestamped coaching insights and optional voice feedback.
+PitchPerfect is an AI-powered web application that provides actionable feedback on presentation decks and pitch videos. Users upload a PDF presentation and record or upload a short pitch video. The system performs multimodal analysis of deck content and speech delivery, then produces timestamped coaching insights and optional voice feedback.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ PitchCoach is an AI-powered web application that provides actionable feedback on
 
 ## Overview
 
-PitchCoach helps users quickly improve their presentation skills by analyzing both content and delivery:
+PitchPerfect helps users quickly improve their presentation skills by analyzing both content and delivery:
 
 - **Deck analysis**: structure, clarity, visual communication, and suggested improvements
 - **Pitch analysis**: speech clarity, pacing, filler detection, and timestamped highlights
