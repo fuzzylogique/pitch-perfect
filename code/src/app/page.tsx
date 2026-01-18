@@ -67,9 +67,6 @@ export default function Home() {
   const hasAudioFeedback = Boolean(report?.audio);
   const hasVoiceResults =
     Boolean(report?.voice) || Boolean(report?.voiceNarrations?.length);
-  const hasAudioFeedback = Boolean(report?.audio);
-  const hasVoiceResults =
-    Boolean(report?.voice) || Boolean(report?.voiceNarrations?.length);
 
   const renderCategory = (label: string, category?: CategoryScore) => {
     if (!category) {
