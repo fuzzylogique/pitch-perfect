@@ -9,6 +9,7 @@ import {
   TranscriptionEvaluation,
   UploadedMedia,
   VoiceEvaluation,
+  VoiceNarration,
 } from "./evaluation-schema";
 import { renderPrompt } from "./agent-prompts";
 import { callGeminiJson, getDefaultModel } from "./agent-llm";
@@ -39,6 +40,7 @@ type CombineOutput = {
   summary: EvaluationReport["summary"];
   timeline: NonNullable<EvaluationReport["timeline"]>;
   recommendations: EvaluationReport["recommendations"];
+  voiceScripts?: VoiceNarration[];
 };
 
 const WorkflowState = Annotation.Root({
@@ -272,6 +274,7 @@ function buildFallbackReport(
       generatedAt: new Date().toISOString(),
       target: request.target,
     },
+    voiceNarrations: partial?.voiceNarrations,
   };
 }
 
@@ -458,5 +461,6 @@ export async function runAgentWorkflow(params: {
       generatedAt: new Date().toISOString(),
       target: params.request.target,
     },
+    voiceNarrations: finalState.combinedResult.data.voiceScripts,
   } satisfies EvaluationReport;
 }

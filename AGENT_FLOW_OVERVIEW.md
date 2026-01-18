@@ -75,6 +75,12 @@ Scoring guidance used within prompts:
 * The transcription feedback card displays the transcript analyst’s scores plus highlight/risk/resolution text.
 * Optional raw report toggle lets developers view the JSON output only when needed.
 
+## 4. Coach narration plan
+
+* The combine agent now also produces `voiceNarrations`—a small array with an encouraging persona and a harsher/funny persona, each delivering a 2–4 sentence motivational critique with a concrete action item. These scripts are what we will feed to the ElevenLabs TTS voices later so they don’t simply echo the summary but act as high-energy coach responses.
+* Front-end components should show both persona scripts (as we now do under the voice feedback card) and queue them to be rendered via the TTS pipeline, allowing for one positive advocate voice and one critical but humorous voice.
+* Future voice playback should use the `tone` metadata to match the correct ElevenLabs voice IDs (encouraging vs harsh) and keep the prompts aligned with the persona instructions defined in `prompts/combine-agent.txt`.
+
 ## 4. Future adjustments
 
 * New prompts can be added by creating a schema that maps to `EvaluationReport`. The combine agent will automatically ingest any new modality as long as it is JSON-stringified before injection.

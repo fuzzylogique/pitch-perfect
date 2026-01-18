@@ -136,6 +136,12 @@ export interface TranscriptInfo {
   segments?: Array<{ startMs?: number; endMs?: number; text: string }>;
 }
 
+export interface VoiceNarration {
+  persona: string;
+  tone: string;
+  script: string;
+}
+
 export interface EvaluationReport {
   version: "1.0";
   summary: {
@@ -160,6 +166,7 @@ export interface EvaluationReport {
     generatedAt: string;
     target: EvaluationTarget;
   };
+  voiceNarrations?: VoiceNarration[];
 }
 
 export interface EvaluationJob {

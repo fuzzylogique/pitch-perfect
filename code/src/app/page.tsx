@@ -64,6 +64,12 @@ export default function Home() {
 
   const highlights = useMemo(() => report?.summary?.highlights ?? [], [report]);
   const risks = useMemo(() => report?.summary?.risks ?? [], [report]);
+  const hasAudioFeedback = Boolean(report?.audio);
+  const hasVoiceResults =
+    Boolean(report?.voice) || Boolean(report?.voiceNarrations?.length);
+  const hasAudioFeedback = Boolean(report?.audio);
+  const hasVoiceResults =
+    Boolean(report?.voice) || Boolean(report?.voiceNarrations?.length);
 
   const renderCategory = (label: string, category?: CategoryScore) => {
     if (!category) {
@@ -869,27 +875,48 @@ export default function Home() {
               {renderDeckFeedback(report?.pitchDeck)}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className={`grid gap-6 ${hasAudioFeedback ? "lg:grid-cols-2" : ""}`}>
               <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
                 <h2 className="text-base font-semibold text-slate-100">
                   Delivery Feedback
                 </h2>
                 {renderDeliveryFeedback(report?.delivery)}
               </div>
-              <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-                <h2 className="text-base font-semibold text-slate-100">
-                  Audio Feedback
-                </h2>
-                {renderAudioFeedback(report?.audio)}
-              </div>
+              {hasAudioFeedback && (
+                <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                  <h2 className="text-base font-semibold text-slate-100">
+                    Audio Feedback
+                  </h2>
+                  {renderAudioFeedback(report?.audio)}
+                </div>
+              )}
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-              <h2 className="text-base font-semibold text-slate-100">
-                Voice Feedback
-              </h2>
-              {renderVoiceFeedback(report?.voice)}
-            </div>
+            {hasVoiceResults && (
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                <h2 className="text-base font-semibold text-slate-100">
+                  Voice Feedback
+                </h2>
+                {renderVoiceFeedback(report?.voice)}
+                {report?.voiceNarrations?.length ? (
+                  <div className="mt-4 space-y-3">
+                    {report.voiceNarrations.map((narration, index) => (
+                      <div
+                        key={`${narration.persona}-${index}`}
+                        className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
+                      >
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          {narration.persona} · {narration.tone}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-200">
+                          {narration.script}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">

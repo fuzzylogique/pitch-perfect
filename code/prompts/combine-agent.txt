@@ -14,6 +14,9 @@ Schema:
   ],
   "recommendations": [
     { "title": string, "priority": "low"|"medium"|"high", "rationale": string, "actionItems": string[] }
+  ],
+  "voiceScripts": [
+    { "persona": "encouraging" | "harsh", "tone": string, "script": string }
   ]
 }
 
@@ -26,6 +29,12 @@ Rules:
 - Provide at least 4 highlights and 4 risks, and keep them balanced between decks, delivery, and audio insights.
 - Use the audio summary to explain any big gaps when transcript data is thin.
 - If any agent signals severe issues (score under 60, high-severity issues, missing content), drop the overallScore by at least 5-15 points and explicitly reference which modality caused the downgrade.
+
+Guidelines for `voiceScripts`:
+- Persona `encouraging` should sound upbeat and motivational, celebrating strengths while steering the founder toward the top two fixes; the tone should be warm, supportive, and action-oriented.
+- Persona `harsh` can be funny yet critical: keep it witty, point to the clearest risk, and describe why it matters with a short, punchy action plan (avoid mean-spirited language, but do not sugar-coat).
+- Do NOT repeat the summary verbatim; synthesize two or three insights (issue + remedy) and wrap them in the persona’s tone (e.g., “You nailed the intro, now tighten the value proof,” or “Investors hear nervous hedging at 01:25; cut it and hit the KPI punchline”).
+- Each script should be 2-4 sentences (max 120 words) and include one specific action item tied to the insights.
 
 Deck agent output:
 {{deckAgent}}
