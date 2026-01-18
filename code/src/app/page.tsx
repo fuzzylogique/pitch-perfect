@@ -3,13 +3,17 @@
 import { useState, useRef, useCallback } from "react";
 import { Navbar } from "@/app/components/Navbar";
 import { HeroSection } from "@/app/components/HeroSection";
+import { SpeechAnalysisResults } from "@/app/components/SpeechAnalysisResults";
 import { useRouter } from "next/navigation";
+import { summarizeWithGemini, type SummarizeResponse } from "@/app/services/api";
 
 type FileWithPreview = {
   file: File;
   id: string;
   type: "audio" | "video";
 };
+
+type AnalysisMode = "quick" | "detailed";
 
 export default function Home() {
   const router = useRouter();
@@ -20,13 +24,17 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<SummarizeResponse | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("detailed");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // navbar
   const [isDark, setIsDark] = useState(true);
 
-  const acceptedTypes = ["audio/mpeg", "audio/mp3", "video/mp4"];
-  const acceptedExtensions = [".mp3", ".mp4"];
+  const acceptedTypes = ["audio/mpeg", "audio/mp3", "audio/wav", "video/mp4"];
+  const acceptedExtensions = [".mp3", ".mp4", ".wav"];
 
   const validateFile = (file: File): boolean => {
     const isValidType = acceptedTypes.includes(file.type);
@@ -106,12 +114,40 @@ export default function Home() {
     if (files.length === 0) return;
 
     setIsAnalyzing(true);
+    setAnalysisError(null);
+    setAnalysisProgress(0);
 
-    // Simulate analysis
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      // Use the first file for analysis
+      const fileToAnalyze = files[0].file;
 
-    setIsAnalyzing(false);
-    setAnalysisComplete(true);
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setAnalysisProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + Math.random() * 15;
+        });
+      }, 500);
+
+      // Call the summarize endpoint which includes transcription
+      const result = await summarizeWithGemini(fileToAnalyze);
+
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
+
+      setAnalysisResult(result);
+      setAnalysisComplete(true);
+    } catch (error) {
+      console.error("Analysis failed:", error);
+      setAnalysisError(
+        error instanceof Error ? error.message : "Failed to analyze the file. Please try again."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleReset = () => {
@@ -119,6 +155,9 @@ export default function Home() {
     setTitle("");
     setDescription("");
     setAnalysisComplete(false);
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setAnalysisProgress(0);
   };
 
   return (
@@ -185,7 +224,7 @@ export default function Home() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".mp3,.mp4,audio/mpeg,video/mp4"
+                  accept=".mp3,.mp4,.wav,audio/mpeg,audio/wav,video/mp4"
                   multiple
                   onChange={handleFileInput}
                   className="hidden"
@@ -219,7 +258,7 @@ export default function Home() {
                       : "Click to upload or drag and drop"}
                   </p>
                   <p className="text-sm text-[var(--text-tertiary)]">
-                    MP3 or MP4 files supported
+                    MP3, WAV, or MP4 files supported
                   </p>
                 </div>
               </div>
@@ -367,44 +406,95 @@ export default function Home() {
                 </h3>
               </div>
 
-              {/* Analysis Complete State */}
-              {analysisComplete ? (
-                <div className="bg-[var(--success-subtle)] border border-[var(--success)]/30 rounded-xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[var(--success)] flex items-center justify-center flex-shrink-0">
-                      <svg
-                        className="w-6 h-6 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
+              {/* Analysis Mode Toggle */}
+              {!analysisComplete && !isAnalyzing && files.length > 0 && (
+                <div className="mb-4 flex items-center gap-4">
+                  <span className="text-sm text-[var(--text-secondary)]">Analysis Mode:</span>
+                  <div className="flex rounded-lg bg-[var(--bg-tertiary)] p-1">
+                    <button
+                      onClick={() => setAnalysisMode("quick")}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        analysisMode === "quick"
+                          ? "bg-[var(--accent-blue)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Quick
+                    </button>
+                    <button
+                      onClick={() => setAnalysisMode("detailed")}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        analysisMode === "detailed"
+                          ? "bg-[var(--accent-blue)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Detailed + AI Summary
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Error State */}
+              {analysisError && (
+                <div className="mb-4 bg-[var(--error-subtle)] border border-[var(--error)]/30 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-[var(--error)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p className="text-[var(--error)] text-sm">{analysisError}</p>
+                    <button
+                      onClick={() => setAnalysisError(null)}
+                      className="ml-auto p-1 rounded hover:bg-[var(--error)]/10 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-[var(--error)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Analysis In Progress */}
+              {isAnalyzing && (
+                <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)] p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <svg className="animate-spin w-10 h-10 text-[var(--accent-blue)]" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[var(--text-primary)] font-medium">Analyzing your presentation...</p>
+                        <p className="text-sm text-[var(--text-tertiary)]">
+                          {analysisProgress < 30
+                            ? "Uploading and processing audio..."
+                            : analysisProgress < 60
+                              ? "Transcribing speech..."
+                              : analysisProgress < 90
+                                ? "Generating AI insights..."
+                                : "Finalizing results..."}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="text-lg font-semibold text-[var(--success)] mb-2">
-                        Analysis Complete!
-                      </h4>
-                      <p className="text-[var(--text-secondary)] mb-4">
-                        Your presentation has been analyzed. Check your results
-                        below to see personalized feedback and suggestions for
-                        improvement.
-                      </p>
-                      <button
-                        onClick={handleReset}
-                        className="px-4 py-2 rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors text-sm font-medium"
-                      >
-                        Analyze Another
-                      </button>
+                    <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 transition-all duration-300 ease-out"
+                        style={{ width: `${Math.min(analysisProgress, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-[var(--text-muted)]">
+                      <span>Processing {files[0]?.file.name}</span>
+                      <span>{Math.round(analysisProgress)}%</span>
                     </div>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Ready to Analyze State */}
+              {!analysisComplete && !isAnalyzing && (
                 <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)] p-6">
                   <div className="flex flex-col sm:flex-row items-center gap-4">
                     <div className="flex-1 text-center sm:text-left">
@@ -426,52 +516,32 @@ export default function Home() {
                         }
                       `}
                     >
-                      {isAnalyzing ? (
-                        <>
-                          <svg
-                            className="animate-spin w-5 h-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                          </svg>
-                          Analyze Presentation
-                        </>
-                      )}
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                      Analyze Presentation
                     </button>
                   </div>
                 </div>
               )}
             </section>
+
+            {/* Analysis Results */}
+            {analysisComplete && analysisResult && (
+              <section className="mt-8">
+                <SpeechAnalysisResults data={analysisResult} onReset={handleReset} />
+              </section>
+            )}
           </div>
         </div>
       </main>
