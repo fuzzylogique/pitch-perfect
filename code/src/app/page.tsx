@@ -5,6 +5,8 @@ import { Navbar } from "@/app/components/Navbar";
 import { HeroSection } from "@/app/components/HeroSection";
 import { SpeechAnalysisResults } from "@/app/components/SpeechAnalysisResults";
 import { PDFAnalysisResults } from "@/app/components/PDFAnalysisResults";
+import { AudioRecorder } from "@/app/components/AudioRecorder";
+import { KaraokePlayback } from "@/app/components/KaraokePlayback";
 import { useRouter } from "next/navigation";
 import {
   analyzeAudio,
@@ -36,6 +38,10 @@ export default function Home() {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [currentAnalysisStep, setCurrentAnalysisStep] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Recording state
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [audioInputMode, setAudioInputMode] = useState<"upload" | "record">("upload");
 
   // Theme management
   const [isDark, setIsDark] = useState(true);
@@ -94,6 +100,12 @@ export default function Home() {
             id: `${file.name}-${Date.now()}-${Math.random()}`,
             type: fileType,
           });
+
+          // Create audio URL for playback if it's an audio/video file
+          if (fileType === "audio" || fileType === "video") {
+            const audioUrl = URL.createObjectURL(file);
+            setRecordedAudioUrl(audioUrl);
+          }
         }
       }
     });
@@ -135,6 +147,27 @@ export default function Home() {
 
   const removeFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const handleRecordingComplete = (file: File, audioUrl: string) => {
+    // Remove any existing audio/video file
+    setFiles((prev) => prev.filter((f) => f.type !== "audio" && f.type !== "video"));
+
+    // Add the recorded file
+    const newFile: FileWithPreview = {
+      file,
+      id: `recording-${Date.now()}`,
+      type: "audio",
+    };
+    setFiles((prev) => [...prev, newFile]);
+    setRecordedAudioUrl(audioUrl);
+    setAnalysisComplete(false);
+    setAudioResult(null);
+  };
+
+  const clearRecording = () => {
+    setRecordedAudioUrl(null);
+    setFiles((prev) => prev.filter((f) => f.type !== "audio" && f.type !== "video"));
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -229,6 +262,8 @@ export default function Home() {
     setPdfResult(null);
     setAnalysisError(null);
     setAnalysisProgress(0);
+    setRecordedAudioUrl(null);
+    setAudioInputMode("upload");
   };
 
   const getFileIcon = (type: FileType) => {
@@ -305,77 +340,146 @@ export default function Home() {
 
               {/* Upload Areas Container */}
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Audio/Video Dropzone */}
-                <div
-                  onClick={() => {
-                    if (!audioVideoFile) {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = '.mp3,.mp4,.wav,audio/mpeg,audio/wav,video/mp4';
-                      input.onchange = (e) => {
-                        const files = (e.target as HTMLInputElement).files;
-                        if (files) handleFiles(files);
-                      };
-                      input.click();
-                    }
-                  }}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`
-                    relative rounded-xl border-2 border-dashed transition-all duration-200 p-6
-                    ${audioVideoFile
-                      ? "border-green-500/50 bg-green-500/5 cursor-default"
-                      : isDragging
-                        ? "border-[var(--accent-blue)] bg-[var(--accent-blue-subtle)] cursor-pointer"
-                        : "border-[var(--border-secondary)] bg-[var(--bg-secondary)] hover:border-[var(--border-focus)] hover:bg-[var(--bg-tertiary)] cursor-pointer"
-                    }
-                  `}
-                >
-                  {audioVideoFile ? (
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        audioVideoFile.type === "audio" ? "bg-blue-500/10" : "bg-blue-500/10"
-                      }`}>
-                        {getFileIcon(audioVideoFile.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[var(--text-primary)] font-medium truncate text-sm">
-                          {audioVideoFile.file.name}
-                        </p>
-                        <p className="text-xs text-[var(--text-tertiary)]">
-                          {formatFileSize(audioVideoFile.file.size)} • {getFileTypeLabel(audioVideoFile.type)}
-                        </p>
-                      </div>
+                {/* Audio/Video Section */}
+                <div className="space-y-3">
+                  {/* Mode Toggle */}
+                  {!audioVideoFile && (
+                    <div className="flex rounded-lg bg-[var(--bg-tertiary)] p-1">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeFile(audioVideoFile.id);
-                        }}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--error)] hover:bg-[var(--error-subtle)] transition-colors"
+                        onClick={() => setAudioInputMode("upload")}
+                        className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                          audioInputMode === "upload"
+                            ? "bg-[var(--accent-blue)] text-white"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        }`}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        Upload File
+                      </button>
+                      <button
+                        onClick={() => setAudioInputMode("record")}
+                        className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                          audioInputMode === "record"
+                            ? "bg-[var(--accent-blue)] text-white"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        }`}
+                      >
+                        Record
                       </button>
                     </div>
-                  ) : (
-                    <div className="text-center">
-                      <div className="mx-auto w-12 h-12 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-[var(--accent-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                      </div>
-                      <p className="text-[var(--text-primary)] font-medium text-sm mb-1">
-                        Speech Recording
-                      </p>
-                      <p className="text-xs text-[var(--text-tertiary)]">
-                        MP3, WAV, or MP4
-                      </p>
-                      <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)]">
-                        Optional
-                      </span>
+                  )}
+
+                  {/* Upload Mode */}
+                  {audioInputMode === "upload" && (
+                    <div
+                      onClick={() => {
+                        if (!audioVideoFile) {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.mp3,.mp4,.wav,audio/mpeg,audio/wav,video/mp4';
+                          input.onchange = (e) => {
+                            const files = (e.target as HTMLInputElement).files;
+                            if (files) handleFiles(files);
+                          };
+                          input.click();
+                        }
+                      }}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`
+                        relative rounded-xl border-2 border-dashed transition-all duration-200 p-6
+                        ${audioVideoFile
+                          ? "border-green-500/50 bg-green-500/5 cursor-default"
+                          : isDragging
+                            ? "border-[var(--accent-blue)] bg-[var(--accent-blue-subtle)] cursor-pointer"
+                            : "border-[var(--border-secondary)] bg-[var(--bg-secondary)] hover:border-[var(--border-focus)] hover:bg-[var(--bg-tertiary)] cursor-pointer"
+                        }
+                      `}
+                    >
+                      {audioVideoFile ? (
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            {getFileIcon(audioVideoFile.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[var(--text-primary)] font-medium truncate text-sm">
+                              {audioVideoFile.file.name}
+                            </p>
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              {formatFileSize(audioVideoFile.file.size)} • {getFileTypeLabel(audioVideoFile.type)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(audioVideoFile.id);
+                              setRecordedAudioUrl(null);
+                            }}
+                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--error)] hover:bg-[var(--error-subtle)] transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="mx-auto w-12 h-12 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mb-3">
+                            <svg className="w-6 h-6 text-[var(--accent-blue)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                          </div>
+                          <p className="text-[var(--text-primary)] font-medium text-sm mb-1">
+                            Upload Speech Recording
+                          </p>
+                          <p className="text-xs text-[var(--text-tertiary)]">
+                            MP3, WAV, or MP4
+                          </p>
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* Record Mode */}
+                  {audioInputMode === "record" && !audioVideoFile && (
+                    <AudioRecorder
+                      onRecordingComplete={handleRecordingComplete}
+                      disabled={isAnalyzing}
+                    />
+                  )}
+
+                  {/* Show recorded file info in record mode */}
+                  {audioInputMode === "record" && audioVideoFile && (
+                    <div className="rounded-xl border-2 border-green-500/50 bg-green-500/5 p-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[var(--text-primary)] font-medium text-sm">
+                            Recording saved
+                          </p>
+                          <p className="text-xs text-[var(--text-tertiary)]">
+                            {formatFileSize(audioVideoFile.file.size)} • Ready to analyze
+                          </p>
+                        </div>
+                        <button
+                          onClick={clearRecording}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--error)] hover:bg-[var(--error-subtle)] transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Optional label */}
+                  {!audioVideoFile && (
+                    <p className="text-xs text-center text-[var(--text-muted)]">Optional</p>
                   )}
                 </div>
 
@@ -750,6 +854,19 @@ export default function Home() {
                         <h4 className="text-lg font-medium text-[var(--text-primary)]">Speech Analysis</h4>
                       </div>
                     )}
+
+                    {/* Karaoke Playback - shows when we have audio URL and analysis */}
+                    {recordedAudioUrl && audioResult.word_analysis.length > 0 && (
+                      <div className="mb-6">
+                        <KaraokePlayback
+                          audioUrl={recordedAudioUrl}
+                          wordAnalysis={audioResult.word_analysis}
+                          transcription={audioResult.transcription}
+                          timestamps={audioResult.timestamps}
+                        />
+                      </div>
+                    )}
+
                     <SpeechAnalysisResults data={audioResult} onReset={handleReset} />
                   </div>
                 )}
