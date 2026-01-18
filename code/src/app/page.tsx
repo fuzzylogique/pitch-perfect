@@ -4,16 +4,24 @@ import { useState, useRef, useCallback } from "react";
 import { Navbar } from "@/app/components/Navbar";
 import { HeroSection } from "@/app/components/HeroSection";
 import { SpeechAnalysisResults } from "@/app/components/SpeechAnalysisResults";
+import { PDFAnalysisResults } from "@/app/components/PDFAnalysisResults";
 import { useRouter } from "next/navigation";
-import { summarizeWithGemini, type SummarizeResponse } from "@/app/services/api";
+import {
+  analyzeAudio,
+  analyzePDF,
+  type AudioAnalysisResponse,
+  type PDFAnalysisResponse,
+} from "@/app/services/api";
+
+type FileType = "audio" | "video" | "pdf";
 
 type FileWithPreview = {
   file: File;
   id: string;
-  type: "audio" | "video";
+  type: FileType;
 };
 
-type AnalysisMode = "quick" | "detailed";
+type AnalysisType = "audio" | "pdf";
 
 export default function Home() {
   const router = useRouter();
@@ -24,54 +32,70 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<SummarizeResponse | null>(null);
+  const [audioResult, setAudioResult] = useState<AudioAnalysisResponse | null>(null);
+  const [pdfResult, setPdfResult] = useState<PDFAnalysisResponse | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("detailed");
+  const [analysisType, setAnalysisType] = useState<AnalysisType>("audio");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // navbar
   const [isDark, setIsDark] = useState(true);
 
-  const acceptedTypes = ["audio/mpeg", "audio/mp3", "audio/wav", "video/mp4"];
-  const acceptedExtensions = [".mp3", ".mp4", ".wav"];
+  const audioTypes = ["audio/mpeg", "audio/mp3", "audio/wav", "video/mp4"];
+  const pdfTypes = ["application/pdf"];
+  const audioExtensions = [".mp3", ".mp4", ".wav"];
+  const pdfExtensions = [".pdf"];
 
   const validateFile = (file: File): boolean => {
-    const isValidType = acceptedTypes.includes(file.type);
-    const isValidExtension = acceptedExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext),
-    );
-    return isValidType || isValidExtension;
+    if (analysisType === "audio") {
+      const isValidType = audioTypes.includes(file.type);
+      const isValidExtension = audioExtensions.some((ext) =>
+        file.name.toLowerCase().endsWith(ext)
+      );
+      return isValidType || isValidExtension;
+    } else {
+      const isValidType = pdfTypes.includes(file.type);
+      const isValidExtension = pdfExtensions.some((ext) =>
+        file.name.toLowerCase().endsWith(ext)
+      );
+      return isValidType || isValidExtension;
+    }
   };
 
-  const getFileType = (file: File): "audio" | "video" => {
-    if (
-      file.type.startsWith("audio/") ||
-      file.name.toLowerCase().endsWith(".mp3")
-    ) {
+  const getFileType = (file: File): FileType => {
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      return "pdf";
+    }
+    if (file.type.startsWith("audio/") || file.name.toLowerCase().endsWith(".mp3") || file.name.toLowerCase().endsWith(".wav")) {
       return "audio";
     }
     return "video";
   };
 
-  const handleFiles = useCallback((fileList: FileList) => {
-    const newFiles: FileWithPreview[] = [];
+  const handleFiles = useCallback(
+    (fileList: FileList) => {
+      const newFiles: FileWithPreview[] = [];
 
-    Array.from(fileList).forEach((file) => {
-      if (validateFile(file)) {
-        newFiles.push({
-          file,
-          id: `${file.name}-${Date.now()}-${Math.random()}`,
-          type: getFileType(file),
-        });
+      Array.from(fileList).forEach((file) => {
+        if (validateFile(file)) {
+          newFiles.push({
+            file,
+            id: `${file.name}-${Date.now()}-${Math.random()}`,
+            type: getFileType(file),
+          });
+        }
+      });
+
+      if (newFiles.length > 0) {
+        setFiles((prev) => [...prev, ...newFiles]);
+        setAnalysisComplete(false);
+        setAudioResult(null);
+        setPdfResult(null);
       }
-    });
-
-    if (newFiles.length > 0) {
-      setFiles((prev) => [...prev, ...newFiles]);
-      setAnalysisComplete(false);
-    }
-  }, []);
+    },
+    [analysisType]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -91,7 +115,7 @@ export default function Home() {
         handleFiles(e.dataTransfer.files);
       }
     },
-    [handleFiles],
+    [handleFiles]
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,8 +142,8 @@ export default function Home() {
     setAnalysisProgress(0);
 
     try {
-      // Use the first file for analysis
       const fileToAnalyze = files[0].file;
+      const fileType = files[0].type;
 
       // Simulate progress updates
       const progressInterval = setInterval(() => {
@@ -132,18 +156,27 @@ export default function Home() {
         });
       }, 500);
 
-      // Call the summarize endpoint which includes transcription
-      const result = await summarizeWithGemini(fileToAnalyze);
+      if (fileType === "pdf") {
+        const result = await analyzePDF(fileToAnalyze);
+        clearInterval(progressInterval);
+        setAnalysisProgress(100);
+        setPdfResult(result);
+        setAudioResult(null);
+      } else {
+        const result = await analyzeAudio(fileToAnalyze);
+        clearInterval(progressInterval);
+        setAnalysisProgress(100);
+        setAudioResult(result);
+        setPdfResult(null);
+      }
 
-      clearInterval(progressInterval);
-      setAnalysisProgress(100);
-
-      setAnalysisResult(result);
       setAnalysisComplete(true);
     } catch (error) {
       console.error("Analysis failed:", error);
       setAnalysisError(
-        error instanceof Error ? error.message : "Failed to analyze the file. Please try again."
+        error instanceof Error
+          ? error.message
+          : "Failed to analyze the file. Please try again."
       );
     } finally {
       setIsAnalyzing(false);
@@ -155,9 +188,57 @@ export default function Home() {
     setTitle("");
     setDescription("");
     setAnalysisComplete(false);
-    setAnalysisResult(null);
+    setAudioResult(null);
+    setPdfResult(null);
     setAnalysisError(null);
     setAnalysisProgress(0);
+  };
+
+  const handleAnalysisTypeChange = (type: AnalysisType) => {
+    if (type !== analysisType) {
+      setAnalysisType(type);
+      setFiles([]);
+      setAnalysisComplete(false);
+      setAudioResult(null);
+      setPdfResult(null);
+      setAnalysisError(null);
+    }
+  };
+
+  const getFileIcon = (type: FileType) => {
+    if (type === "pdf") {
+      return (
+        <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      );
+    }
+    if (type === "audio") {
+      return (
+        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    );
+  };
+
+  const getAcceptedFiles = () => {
+    if (analysisType === "audio") {
+      return ".mp3,.mp4,.wav,audio/mpeg,audio/wav,video/mp4";
+    }
+    return ".pdf,application/pdf";
+  };
+
+  const getAcceptedFormats = () => {
+    if (analysisType === "audio") {
+      return "MP3, WAV, or MP4 files supported";
+    }
+    return "PDF files supported";
   };
 
   return (
@@ -184,12 +265,44 @@ export default function Home() {
           {/* Title Section */}
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-3">
-              Analyze Your Pitch
+              Analyze Your Presentation
             </h2>
             <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              Upload your audio or video presentation and receive AI-powered
-              feedback to improve your delivery, clarity, and impact.
+              Upload your audio, video, or slide deck to receive AI-powered
+              feedback and improve your presentation skills.
             </p>
+          </div>
+
+          {/* Analysis Type Toggle */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex rounded-xl bg-[var(--bg-secondary)] p-1.5 border border-[var(--border-primary)]">
+              <button
+                onClick={() => handleAnalysisTypeChange("audio")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                  analysisType === "audio"
+                    ? "bg-[var(--accent-blue)] text-white shadow-lg"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                Speech Analysis
+              </button>
+              <button
+                onClick={() => handleAnalysisTypeChange("pdf")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                  analysisType === "pdf"
+                    ? "bg-purple-500 text-white shadow-lg"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Slide Deck Analysis
+              </button>
+            </div>
           </div>
 
           {/* Form Container */}
@@ -197,11 +310,13 @@ export default function Home() {
             {/* Step 1: Upload Section */}
             <section className="animate-fade-in-delay-1">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-sm font-semibold text-white">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white ${
+                  analysisType === "audio" ? "bg-[var(--accent-blue)]" : "bg-purple-500"
+                }`}>
                   1
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
-                  Upload your presentation
+                  Upload your {analysisType === "audio" ? "presentation recording" : "slide deck"}
                 </h3>
               </div>
 
@@ -216,7 +331,9 @@ export default function Home() {
                   transition-all duration-200 p-10
                   ${
                     isDragging
-                      ? "border-[var(--accent-blue)] bg-[var(--accent-blue-subtle)]"
+                      ? analysisType === "audio"
+                        ? "border-[var(--accent-blue)] bg-[var(--accent-blue-subtle)]"
+                        : "border-purple-500 bg-purple-500/10"
                       : "border-[var(--border-secondary)] bg-[var(--bg-secondary)] hover:border-[var(--border-focus)] hover:bg-[var(--bg-tertiary)]"
                   }
                 `}
@@ -224,7 +341,7 @@ export default function Home() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".mp3,.mp4,.wav,audio/mpeg,audio/wav,video/mp4"
+                  accept={getAcceptedFiles()}
                   multiple
                   onChange={handleFileInput}
                   className="hidden"
@@ -234,22 +351,44 @@ export default function Home() {
                   <div
                     className={`
                     mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors
-                    ${isDragging ? "bg-[var(--accent-blue)]" : "bg-[var(--bg-tertiary)]"}
+                    ${
+                      isDragging
+                        ? analysisType === "audio"
+                          ? "bg-[var(--accent-blue)]"
+                          : "bg-purple-500"
+                        : "bg-[var(--bg-tertiary)]"
+                    }
                   `}
                   >
-                    <svg
-                      className={`w-8 h-8 ${isDragging ? "text-white" : "text-[var(--text-tertiary)]"}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
+                    {analysisType === "audio" ? (
+                      <svg
+                        className={`w-8 h-8 ${isDragging ? "text-white" : "text-[var(--text-tertiary)]"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className={`w-8 h-8 ${isDragging ? "text-white" : "text-[var(--text-tertiary)]"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    )}
                   </div>
 
                   <p className="text-[var(--text-primary)] font-medium mb-1">
@@ -258,7 +397,7 @@ export default function Home() {
                       : "Click to upload or drag and drop"}
                   </p>
                   <p className="text-sm text-[var(--text-tertiary)]">
-                    MP3, WAV, or MP4 files supported
+                    {getAcceptedFormats()}
                   </p>
                 </div>
               </div>
@@ -269,44 +408,26 @@ export default function Home() {
                   {files.map((fileItem) => (
                     <div
                       key={fileItem.id}
-                      className="flex items-center gap-4 p-4 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)]"
+                      className={`flex items-center gap-4 p-4 rounded-lg bg-[var(--bg-secondary)] border ${
+                        fileItem.type === "pdf"
+                          ? "border-purple-500/30"
+                          : "border-[var(--border-primary)]"
+                      }`}
                     >
                       {/* File Icon */}
                       <div
                         className={`
                         w-12 h-12 rounded-lg flex items-center justify-center
-                        ${fileItem.type === "audio" ? "bg-purple-500/10" : "bg-blue-500/10"}
+                        ${
+                          fileItem.type === "pdf"
+                            ? "bg-red-500/10"
+                            : fileItem.type === "audio"
+                              ? "bg-purple-500/10"
+                              : "bg-blue-500/10"
+                        }
                       `}
                       >
-                        {fileItem.type === "audio" ? (
-                          <svg
-                            className="w-6 h-6 text-purple-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="w-6 h-6 text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        )}
+                        {getFileIcon(fileItem.type)}
                       </div>
 
                       {/* File Info */}
@@ -316,7 +437,11 @@ export default function Home() {
                         </p>
                         <p className="text-sm text-[var(--text-tertiary)]">
                           {formatFileSize(fileItem.file.size)} •{" "}
-                          {fileItem.type === "audio" ? "Audio" : "Video"}
+                          {fileItem.type === "pdf"
+                            ? "PDF Document"
+                            : fileItem.type === "audio"
+                              ? "Audio"
+                              : "Video"}
                         </p>
                       </div>
 
@@ -348,7 +473,9 @@ export default function Home() {
             {/* Step 2: Details Section */}
             <section className="animate-fade-in-delay-2">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-sm font-semibold text-white">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white ${
+                  analysisType === "audio" ? "bg-[var(--accent-blue)]" : "bg-purple-500"
+                }`}>
                   2
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
@@ -363,14 +490,18 @@ export default function Home() {
                     htmlFor="title"
                     className="block text-sm font-medium text-[var(--text-secondary)] mb-2"
                   >
-                    Presentation Title
+                    {analysisType === "audio" ? "Presentation Title" : "Slide Deck Title"}
                   </label>
                   <input
                     id="title"
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g., Q4 Sales Pitch, Product Demo"
+                    placeholder={
+                      analysisType === "audio"
+                        ? "e.g., Q4 Sales Pitch, Product Demo"
+                        : "e.g., Company Overview, Product Roadmap"
+                    }
                     className="w-full px-4 py-3 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] focus:ring-1 focus:ring-[var(--accent-blue)] transition-colors"
                   />
                 </div>
@@ -387,7 +518,11 @@ export default function Home() {
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="e.g., I want to improve my pacing and make my key points more memorable..."
+                    placeholder={
+                      analysisType === "audio"
+                        ? "e.g., I want to improve my pacing and make my key points more memorable..."
+                        : "e.g., I want to ensure my slides are clear and well-structured..."
+                    }
                     rows={4}
                     className="w-full px-4 py-3 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] focus:ring-1 focus:ring-[var(--accent-blue)] transition-colors resize-none"
                   />
@@ -398,7 +533,9 @@ export default function Home() {
             {/* Step 3: Analyze Section */}
             <section className="animate-fade-in-delay-3">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-sm font-semibold text-white">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white ${
+                  analysisType === "audio" ? "bg-[var(--accent-blue)]" : "bg-purple-500"
+                }`}>
                   3
                 </div>
                 <h3 className="text-lg font-medium text-[var(--text-primary)]">
@@ -406,31 +543,24 @@ export default function Home() {
                 </h3>
               </div>
 
-              {/* Analysis Mode Toggle */}
+              {/* Info Box */}
               {!analysisComplete && !isAnalyzing && files.length > 0 && (
-                <div className="mb-4 flex items-center gap-4">
-                  <span className="text-sm text-[var(--text-secondary)]">Analysis Mode:</span>
-                  <div className="flex rounded-lg bg-[var(--bg-tertiary)] p-1">
-                    <button
-                      onClick={() => setAnalysisMode("quick")}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                        analysisMode === "quick"
-                          ? "bg-[var(--accent-blue)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Quick
-                    </button>
-                    <button
-                      onClick={() => setAnalysisMode("detailed")}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                        analysisMode === "detailed"
-                          ? "bg-[var(--accent-blue)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Detailed + AI Summary
-                    </button>
+                <div className={`mb-4 p-4 rounded-lg border ${
+                  analysisType === "audio"
+                    ? "bg-[var(--accent-blue)]/10 border-[var(--accent-blue)]/30"
+                    : "bg-purple-500/10 border-purple-500/30"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <svg className={`w-5 h-5 mt-0.5 ${analysisType === "audio" ? "text-[var(--accent-blue)]" : "text-purple-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-sm text-[var(--text-secondary)]">
+                      {analysisType === "audio" ? (
+                        <p>Your audio will be analyzed for <strong>pace</strong>, <strong>filler words</strong>, <strong>volume consistency</strong>, and you&apos;ll receive <strong>AI-powered feedback</strong> to improve your delivery.</p>
+                      ) : (
+                        <p>Your slide deck will be analyzed for <strong>content structure</strong>, <strong>text density</strong>, <strong>clarity</strong>, and you&apos;ll receive <strong>AI-powered suggestions</strong> for improvement.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -439,16 +569,36 @@ export default function Home() {
               {analysisError && (
                 <div className="mb-4 bg-[var(--error-subtle)] border border-[var(--error)]/30 rounded-xl p-4">
                   <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-[var(--error)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      className="w-5 h-5 text-[var(--error)]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
-                    <p className="text-[var(--error)] text-sm">{analysisError}</p>
+                    <p className="text-[var(--error)] text-sm flex-1">{analysisError}</p>
                     <button
                       onClick={() => setAnalysisError(null)}
-                      className="ml-auto p-1 rounded hover:bg-[var(--error)]/10 transition-colors"
+                      className="p-1 rounded hover:bg-[var(--error)]/10 transition-colors"
                     >
-                      <svg className="w-4 h-4 text-[var(--error)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-4 h-4 text-[var(--error)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -461,27 +611,58 @@ export default function Home() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <svg className="animate-spin w-10 h-10 text-[var(--accent-blue)]" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        <svg
+                          className={`animate-spin w-10 h-10 ${analysisType === "audio" ? "text-[var(--accent-blue)]" : "text-purple-500"}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-[var(--text-primary)] font-medium">Analyzing your presentation...</p>
+                        <p className="text-[var(--text-primary)] font-medium">
+                          {analysisType === "audio"
+                            ? "Analyzing your presentation..."
+                            : "Analyzing your slide deck..."}
+                        </p>
                         <p className="text-sm text-[var(--text-tertiary)]">
-                          {analysisProgress < 30
-                            ? "Uploading and processing audio..."
-                            : analysisProgress < 60
-                              ? "Transcribing speech..."
-                              : analysisProgress < 90
-                                ? "Generating AI insights..."
-                                : "Finalizing results..."}
+                          {analysisType === "audio"
+                            ? analysisProgress < 30
+                              ? "Uploading and processing audio..."
+                              : analysisProgress < 60
+                                ? "Transcribing speech..."
+                                : analysisProgress < 90
+                                  ? "Generating AI insights..."
+                                  : "Finalizing results..."
+                            : analysisProgress < 30
+                              ? "Uploading and extracting content..."
+                              : analysisProgress < 60
+                                ? "Analyzing slide structure..."
+                                : analysisProgress < 90
+                                  ? "Generating AI recommendations..."
+                                  : "Finalizing results..."}
                         </p>
                       </div>
                     </div>
                     <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-[var(--accent-blue)] to-purple-500 transition-all duration-300 ease-out"
+                        className={`h-full transition-all duration-300 ease-out ${
+                          analysisType === "audio"
+                            ? "bg-gradient-to-r from-[var(--accent-blue)] to-purple-500"
+                            : "bg-gradient-to-r from-purple-500 to-pink-500"
+                        }`}
                         style={{ width: `${Math.min(analysisProgress, 100)}%` }}
                       />
                     </div>
@@ -500,7 +681,7 @@ export default function Home() {
                     <div className="flex-1 text-center sm:text-left">
                       <p className="text-[var(--text-secondary)]">
                         {files.length === 0
-                          ? "Upload at least one file to start analysis"
+                          ? `Upload ${analysisType === "audio" ? "an audio/video file" : "a PDF slide deck"} to start analysis`
                           : `${files.length} file${files.length > 1 ? "s" : ""} ready for analysis`}
                       </p>
                     </div>
@@ -511,7 +692,9 @@ export default function Home() {
                         relative px-8 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2
                         ${
                           files.length > 0 && !isAnalyzing
-                            ? "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] animate-pulse-glow"
+                            ? analysisType === "audio"
+                              ? "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] animate-pulse-glow"
+                              : "bg-purple-500 text-white hover:bg-purple-600 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
                             : "bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed"
                         }
                       `}
@@ -529,7 +712,7 @@ export default function Home() {
                           d="M13 10V3L4 14h7v7l9-11h-7z"
                         />
                       </svg>
-                      Analyze Presentation
+                      Analyze {analysisType === "audio" ? "Presentation" : "Slide Deck"}
                     </button>
                   </div>
                 </div>
@@ -537,9 +720,15 @@ export default function Home() {
             </section>
 
             {/* Analysis Results */}
-            {analysisComplete && analysisResult && (
+            {analysisComplete && audioResult && (
               <section className="mt-8">
-                <SpeechAnalysisResults data={analysisResult} onReset={handleReset} />
+                <SpeechAnalysisResults data={audioResult} onReset={handleReset} />
+              </section>
+            )}
+
+            {analysisComplete && pdfResult && (
+              <section className="mt-8">
+                <PDFAnalysisResults data={pdfResult} onReset={handleReset} />
               </section>
             )}
           </div>

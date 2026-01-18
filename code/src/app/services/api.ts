@@ -1,66 +1,65 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// ============ Audio Analysis Types ============
+
 export interface WordAnalysis {
   word: string;
-  start_time: number;
-  end_time: number;
-  confidence: number;
+  speed: "Too Slow" | "Ideal" | "Fast" | "Too Fast";
+  syllables_per_minute: number;
 }
 
-export interface TranscriptionResult {
-  Transcription: string;
-  "Word Analysis": WordAnalysis[];
-  Timestamps: [number, number][];
-}
-
-export interface SpeechFeature {
-  timestamp: number;
-  clarity: number;
-  pace: number;
-  fillers: number;
-  structure: number;
-}
-
-export interface SummarizeResponse {
+export interface AudioAnalysisResponse {
+  transcription: string;
+  word_analysis: WordAnalysis[];
+  timestamps: [number, number][]; // [end_time, spm]
+  loudness: [number, number][]; // [time, db]
   summary: string;
-  transcription: TranscriptionResult;
 }
 
-export interface AnalyzeResponse {
-  Transcription: string;
-  "Word Analysis": WordAnalysis[];
-  Timestamps: [number, number][];
+// ============ PDF Analysis Types ============
+
+export interface PDFPage {
+  page_number: number;
+  text: string;
 }
 
-export async function analyzeSpeech(file: File): Promise<AnalyzeResponse> {
+export interface PDFAnalysisResponse {
+  total_pages: number;
+  pages: PDFPage[];
+  summary: string;
+}
+
+// ============ API Functions ============
+
+export async function analyzeAudio(file: File): Promise<AudioAnalysisResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE_URL}/analyze-speech`, {
+  const response = await fetch(`${API_BASE_URL}/analyze`, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Analysis failed" }));
-    throw new Error(error.detail || "Failed to analyze speech");
+    throw new Error(error.detail || "Failed to analyze audio");
   }
 
   return response.json();
 }
 
-export async function summarizeWithGemini(file: File): Promise<SummarizeResponse> {
+export async function analyzePDF(file: File): Promise<PDFAnalysisResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE_URL}/summarize-with-gemini`, {
+  const response = await fetch(`${API_BASE_URL}/analyze-pdf`, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Summarization failed" }));
-    throw new Error(error.detail || "Failed to summarize speech");
+    const error = await response.json().catch(() => ({ detail: "PDF analysis failed" }));
+    throw new Error(error.detail || "Failed to analyze PDF");
   }
 
   return response.json();
@@ -74,4 +73,34 @@ export async function healthCheck(): Promise<{ status: string }> {
   }
 
   return response.json();
+}
+
+// ============ Helper Types for Components ============
+
+export interface SpeedDistribution {
+  "Too Slow": number;
+  "Ideal": number;
+  "Fast": number;
+  "Too Fast": number;
+}
+
+export function calculateSpeedDistribution(wordAnalysis: WordAnalysis[]): SpeedDistribution {
+  const distribution: SpeedDistribution = {
+    "Too Slow": 0,
+    "Ideal": 0,
+    "Fast": 0,
+    "Too Fast": 0,
+  };
+
+  wordAnalysis.forEach((word) => {
+    distribution[word.speed]++;
+  });
+
+  return distribution;
+}
+
+export function calculateAverageSPM(wordAnalysis: WordAnalysis[]): number {
+  if (wordAnalysis.length === 0) return 0;
+  const total = wordAnalysis.reduce((sum, word) => sum + word.syllables_per_minute, 0);
+  return total / wordAnalysis.length;
 }

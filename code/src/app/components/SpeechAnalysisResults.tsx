@@ -2,8 +2,6 @@
 
 import { useState, useMemo, type ReactNode } from "react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -22,10 +20,11 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import type { SummarizeResponse, WordAnalysis } from "@/app/services/api";
+import type { AudioAnalysisResponse, WordAnalysis } from "@/app/services/api";
+import { calculateSpeedDistribution, calculateAverageSPM } from "@/app/services/api";
 
 interface SpeechAnalysisResultsProps {
-  data: SummarizeResponse;
+  data: AudioAnalysisResponse;
   onReset: () => void;
 }
 
@@ -37,19 +36,27 @@ const COLORS = {
   success: "#10b981",
   warning: "#f59e0b",
   error: "#ef4444",
-  chart: ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b6d4"],
+  cyan: "#06b6d4",
+  chart: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"],
+  speed: {
+    "Too Slow": "#ef4444",
+    "Ideal": "#10b981",
+    "Fast": "#f59e0b",
+    "Too Fast": "#ef4444",
+  },
 };
 
-type TabType = "overview" | "transcript" | "timeline" | "insights";
+type TabType = "overview" | "transcript" | "timeline" | "loudness" | "insights";
 
 export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [selectedWord, setSelectedWord] = useState<WordAnalysis | null>(null);
 
   const analysis = useMemo(() => {
-    const words = data.transcription["Word Analysis"] || [];
-    const transcript = data.transcription.Transcription || "";
-    const timestamps = data.transcription.Timestamps || [];
+    const words = data.word_analysis || [];
+    const transcript = data.transcription || "";
+    const timestamps = data.timestamps || [];
+    const loudnessData = data.loudness || [];
 
     // Calculate statistics
     const totalWords = words.length;
@@ -57,77 +64,104 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
     const fillerCount = fillerWords.length;
     const fillerPercentage = totalWords > 0 ? (fillerCount / totalWords) * 100 : 0;
 
-    // Calculate average confidence
-    const avgConfidence = totalWords > 0
-      ? words.reduce((sum, w) => sum + (w.confidence || 0), 0) / totalWords
-      : 0;
+    // Speed distribution
+    const speedDistribution = calculateSpeedDistribution(words);
+    const avgSPM = calculateAverageSPM(words);
 
-    // Calculate duration
-    const duration = timestamps.length > 0
-      ? timestamps[timestamps.length - 1][1] - timestamps[0][0]
-      : 0;
+    // Calculate duration from timestamps
+    const duration = timestamps.length > 0 ? timestamps[timestamps.length - 1][0] : 0;
 
-    // Words per minute
+    // Words per minute (based on actual word count and duration)
     const wpm = duration > 0 ? (totalWords / duration) * 60 : 0;
 
-    // Group words by time segments for timeline
-    const segmentDuration = 10; // 10 second segments
-    const timelineData: { time: string; words: number; fillers: number; confidence: number }[] = [];
+    // Ideal percentage
+    const idealCount = speedDistribution["Ideal"];
+    const idealPercentage = totalWords > 0 ? (idealCount / totalWords) * 100 : 0;
 
-    if (timestamps.length > 0) {
-      const maxTime = timestamps[timestamps.length - 1][1];
-      for (let t = 0; t < maxTime; t += segmentDuration) {
-        const segmentWords = words.filter((_, i) => {
-          const ts = timestamps[i];
-          return ts && ts[0] >= t && ts[0] < t + segmentDuration;
-        });
-        const segmentFillers = segmentWords.filter((w) => FILLER_WORDS.has(w.word.toLowerCase()));
-        const segmentConfidence = segmentWords.length > 0
-          ? segmentWords.reduce((sum, w) => sum + (w.confidence || 0), 0) / segmentWords.length
-          : 0;
+    // Speed distribution for pie chart
+    const speedPieData = [
+      { name: "Too Slow", value: speedDistribution["Too Slow"], color: COLORS.speed["Too Slow"] },
+      { name: "Ideal", value: speedDistribution["Ideal"], color: COLORS.speed["Ideal"] },
+      { name: "Fast", value: speedDistribution["Fast"], color: COLORS.speed["Fast"] },
+      { name: "Too Fast", value: speedDistribution["Too Fast"], color: COLORS.speed["Too Fast"] },
+    ].filter((item) => item.value > 0);
 
-        timelineData.push({
-          time: `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`,
-          words: segmentWords.length,
-          fillers: segmentFillers.length,
-          confidence: Math.round(segmentConfidence * 100),
-        });
-      }
-    }
+    // SPM over time data (from timestamps)
+    const spmTimelineData = timestamps.map(([time, spm], index) => ({
+      time: time.toFixed(1),
+      spm: Math.round(spm),
+      index,
+    }));
 
-    // Word frequency for pie chart
+    // Sample SPM data if too many points (for performance)
+    const sampledSpmData = spmTimelineData.length > 100
+      ? spmTimelineData.filter((_, i) => i % Math.ceil(spmTimelineData.length / 100) === 0)
+      : spmTimelineData;
+
+    // Loudness over time data
+    const loudnessTimelineData = loudnessData.map(([time, db]) => ({
+      time: time.toFixed(1),
+      db: Math.round(db * 10) / 10,
+    }));
+
+    // Sample loudness data if too many points
+    const sampledLoudnessData = loudnessTimelineData.length > 200
+      ? loudnessTimelineData.filter((_, i) => i % Math.ceil(loudnessTimelineData.length / 200) === 0)
+      : loudnessTimelineData;
+
+    // Average loudness
+    const avgLoudness = loudnessData.length > 0
+      ? loudnessData.reduce((sum, [, db]) => sum + db, 0) / loudnessData.length
+      : 0;
+
+    // Loudness variance (for consistency metric)
+    const loudnessVariance = loudnessData.length > 0
+      ? Math.sqrt(
+          loudnessData.reduce((sum, [, db]) => sum + Math.pow(db - avgLoudness, 2), 0) /
+            loudnessData.length
+        )
+      : 0;
+
+    // Word frequency for bar chart
     const wordFrequency: Record<string, number> = {};
     words.forEach((w) => {
-      const word = w.word.toLowerCase();
-      if (word.length > 3) {
+      const word = w.word.toLowerCase().replace(/[^a-z]/g, "");
+      if (word.length > 3 && !FILLER_WORDS.has(word)) {
         wordFrequency[word] = (wordFrequency[word] || 0) + 1;
       }
     });
     const topWords = Object.entries(wordFrequency)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
+      .slice(0, 8)
       .map(([word, count]) => ({ word, count }));
 
     // Radar chart data for overall performance
     const performanceData = [
-      { metric: "Clarity", value: Math.round(avgConfidence * 100), fullMark: 100 },
-      { metric: "Pace", value: Math.min(100, Math.round((wpm / 150) * 100)), fullMark: 100 },
-      { metric: "Fluency", value: Math.round(100 - fillerPercentage * 5), fullMark: 100 },
-      { metric: "Consistency", value: Math.round(85 + Math.random() * 10), fullMark: 100 },
-      { metric: "Engagement", value: Math.round(75 + Math.random() * 15), fullMark: 100 },
+      { metric: "Pace", value: Math.min(100, Math.round(idealPercentage)), fullMark: 100 },
+      { metric: "Fluency", value: Math.round(Math.max(0, 100 - fillerPercentage * 10)), fullMark: 100 },
+      { metric: "Consistency", value: Math.round(Math.max(0, 100 - loudnessVariance * 5)), fullMark: 100 },
+      { metric: "Volume", value: Math.round(Math.max(0, Math.min(100, 100 + avgLoudness * 2))), fullMark: 100 },
+      { metric: "Content", value: Math.min(100, Math.round((totalWords / 100) * 50 + 50)), fullMark: 100 },
     ];
 
     return {
       words,
       transcript,
       timestamps,
+      loudnessData,
       totalWords,
       fillerCount,
       fillerPercentage,
-      avgConfidence,
+      speedDistribution,
+      avgSPM,
       duration,
       wpm,
-      timelineData,
+      idealPercentage,
+      speedPieData,
+      sampledSpmData,
+      sampledLoudnessData,
+      avgLoudness,
+      loudnessVariance,
       topWords,
       performanceData,
       fillerWords,
@@ -146,10 +180,27 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
     return "text-red-400";
   };
 
+  const getSpeedColorClass = (speed: string): string => {
+    switch (speed) {
+      case "Too Slow":
+        return "bg-red-500/20 text-red-400";
+      case "Ideal":
+        return "bg-green-500/20 text-green-400";
+      case "Fast":
+        return "bg-yellow-500/20 text-yellow-400";
+      case "Too Fast":
+        return "bg-red-500/20 text-red-400";
+      default:
+        return "bg-gray-500/20 text-gray-400";
+    }
+  };
+
+  // Overall score calculation
   const overallScore = Math.round(
-    (analysis.avgConfidence * 100 * 0.4) +
-    (Math.min(100, (analysis.wpm / 150) * 100) * 0.3) +
-    ((100 - analysis.fillerPercentage * 5) * 0.3)
+    analysis.idealPercentage * 0.35 +
+    Math.max(0, 100 - analysis.fillerPercentage * 10) * 0.25 +
+    Math.max(0, 100 - analysis.loudnessVariance * 5) * 0.2 +
+    Math.min(100, (analysis.totalWords / 100) * 50 + 50) * 0.2
   );
 
   const tabs: { id: TabType; label: string; icon: ReactNode }[] = [
@@ -173,10 +224,19 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
     },
     {
       id: "timeline",
-      label: "Timeline",
+      label: "Pace Timeline",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+    },
+    {
+      id: "loudness",
+      label: "Volume Analysis",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
         </svg>
       ),
     },
@@ -231,7 +291,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
               </h3>
               <p className="text-[var(--text-secondary)]">
                 {overallScore >= 80
-                  ? "Excellent presentation skills!"
+                  ? "Excellent presentation delivery!"
                   : overallScore >= 60
                     ? "Good performance with room for improvement"
                     : "Keep practicing to improve your delivery"}
@@ -251,7 +311,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -260,7 +320,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[var(--text-tertiary)]">Duration</p>
+              <p className="text-xs text-[var(--text-tertiary)]">Duration</p>
               <p className="text-lg font-semibold text-[var(--text-primary)]">
                 {formatDuration(analysis.duration)}
               </p>
@@ -276,7 +336,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[var(--text-tertiary)]">Total Words</p>
+              <p className="text-xs text-[var(--text-tertiary)]">Words</p>
               <p className="text-lg font-semibold text-[var(--text-primary)]">
                 {analysis.totalWords}
               </p>
@@ -292,9 +352,25 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[var(--text-tertiary)]">Words/Min</p>
+              <p className="text-xs text-[var(--text-tertiary)]">Avg SPM</p>
               <p className="text-lg font-semibold text-[var(--text-primary)]">
-                {Math.round(analysis.wpm)}
+                {Math.round(analysis.avgSPM)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border-primary)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-tertiary)]">Ideal Pace</p>
+              <p className="text-lg font-semibold text-green-400">
+                {Math.round(analysis.idealPercentage)}%
               </p>
             </div>
           </div>
@@ -308,7 +384,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[var(--text-tertiary)]">Filler Words</p>
+              <p className="text-xs text-[var(--text-tertiary)]">Fillers</p>
               <p className="text-lg font-semibold text-[var(--text-primary)]">
                 {analysis.fillerCount}
               </p>
@@ -361,10 +437,76 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                 </div>
               </div>
 
-              {/* Word Distribution */}
+              {/* Speed Distribution Pie */}
+              <div>
+                <h4 className="text-lg font-medium text-[var(--text-primary)] mb-4">Pace Distribution</h4>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analysis.speedPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                        labelLine={{ stroke: "var(--text-tertiary)" }}
+                      >
+                        {analysis.speedPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--bg-elevated)",
+                          border: "1px solid var(--border-primary)",
+                          borderRadius: "8px",
+                          color: "var(--text-primary)",
+                        }}
+                        formatter={(value) => [`${value ?? 0} words`, "Count"]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Speed Distribution Bar */}
+            <div>
+              <h4 className="text-lg font-medium text-[var(--text-primary)] mb-4">Speed Breakdown</h4>
+              <div className="grid grid-cols-4 gap-3">
+                {Object.entries(analysis.speedDistribution).map(([speed, count]) => (
+                  <div
+                    key={speed}
+                    className={`p-4 rounded-lg border ${
+                      speed === "Ideal"
+                        ? "border-green-500/30 bg-green-500/10"
+                        : speed === "Fast"
+                          ? "border-yellow-500/30 bg-yellow-500/10"
+                          : "border-red-500/30 bg-red-500/10"
+                    }`}
+                  >
+                    <p className="text-sm text-[var(--text-tertiary)]">{speed}</p>
+                    <p className={`text-2xl font-bold ${
+                      speed === "Ideal" ? "text-green-400" : speed === "Fast" ? "text-yellow-400" : "text-red-400"
+                    }`}>
+                      {count}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {analysis.totalWords > 0 ? Math.round((count / analysis.totalWords) * 100) : 0}%
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Most Used Words */}
+            {analysis.topWords.length > 0 && (
               <div>
                 <h4 className="text-lg font-medium text-[var(--text-primary)] mb-4">Most Used Words</h4>
-                <div className="h-64">
+                <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analysis.topWords} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" />
@@ -383,7 +525,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                   </ResponsiveContainer>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Filler Word Breakdown */}
             {analysis.fillerCount > 0 && (
@@ -411,9 +553,20 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-medium text-[var(--text-primary)]">Full Transcript</h4>
-              <span className="text-sm text-[var(--text-tertiary)]">
-                Click on words to see details
-              </span>
+              <div className="flex items-center gap-4 text-sm text-[var(--text-tertiary)]">
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-orange-500/30"></span> Filler
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-green-500/30"></span> Ideal
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-yellow-500/30"></span> Fast
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-red-500/30"></span> Too Slow/Fast
+                </span>
+              </div>
             </div>
 
             <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg max-h-96 overflow-y-auto">
@@ -429,7 +582,7 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                           ? "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
                           : selectedWord === word
                             ? "bg-[var(--accent-blue)]/30 text-[var(--accent-blue)]"
-                            : "hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+                            : `${getSpeedColorClass(word.speed)} hover:opacity-80`
                       }`}
                     >
                       {word.word}
@@ -448,33 +601,61 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                     <span className="ml-2 text-[var(--text-primary)] font-medium">{selectedWord.word}</span>
                   </div>
                   <div>
-                    <span className="text-[var(--text-tertiary)]">Time:</span>
-                    <span className="ml-2 text-[var(--text-primary)]">
-                      {selectedWord.start_time?.toFixed(2)}s - {selectedWord.end_time?.toFixed(2)}s
+                    <span className="text-[var(--text-tertiary)]">Speed:</span>
+                    <span className={`ml-2 font-medium ${
+                      selectedWord.speed === "Ideal" ? "text-green-400" :
+                      selectedWord.speed === "Fast" ? "text-yellow-400" : "text-red-400"
+                    }`}>
+                      {selectedWord.speed}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[var(--text-tertiary)]">Confidence:</span>
-                    <span className={`ml-2 font-medium ${getScoreColor((selectedWord.confidence || 0) * 100)}`}>
-                      {Math.round((selectedWord.confidence || 0) * 100)}%
+                    <span className="text-[var(--text-tertiary)]">SPM:</span>
+                    <span className="ml-2 text-[var(--text-primary)]">
+                      {Math.round(selectedWord.syllables_per_minute)}
                     </span>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Plain transcript */}
+            <div className="mt-6">
+              <h5 className="font-medium text-[var(--text-primary)] mb-2">Plain Text</h5>
+              <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg text-[var(--text-secondary)] leading-relaxed">
+                {analysis.transcript}
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === "timeline" && (
           <div className="space-y-6">
             <div>
-              <h4 className="text-lg font-medium text-[var(--text-primary)] mb-4">Speaking Pace Over Time</h4>
-              <div className="h-64">
+              <h4 className="text-lg font-medium text-[var(--text-primary)] mb-2">Speaking Pace Over Time</h4>
+              <p className="text-sm text-[var(--text-tertiary)] mb-4">
+                Syllables per minute (SPM) throughout your presentation. Ideal range: 130-300 SPM
+              </p>
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={analysis.timelineData}>
+                  <AreaChart data={analysis.sampledSpmData}>
+                    <defs>
+                      <linearGradient id="spmGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" />
-                    <XAxis dataKey="time" tick={{ fill: "var(--text-tertiary)", fontSize: 12 }} />
-                    <YAxis tick={{ fill: "var(--text-tertiary)", fontSize: 12 }} />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fill: "var(--text-tertiary)", fontSize: 11 }}
+                      label={{ value: "Time (s)", position: "insideBottom", offset: -5, fill: "var(--text-tertiary)" }}
+                    />
+                    <YAxis
+                      tick={{ fill: "var(--text-tertiary)", fontSize: 11 }}
+                      label={{ value: "SPM", angle: -90, position: "insideLeft", fill: "var(--text-tertiary)" }}
+                      domain={[0, "auto"]}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "var(--bg-elevated)",
@@ -482,54 +663,119 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                         borderRadius: "8px",
                         color: "var(--text-primary)",
                       }}
+                      formatter={(value) => [`${value ?? 0} SPM`, "Pace"]}
+                      labelFormatter={(label) => `Time: ${label}s`}
+                    />
+                    {/* Reference lines for ideal range */}
+                    <Area
+                      type="monotone"
+                      dataKey="spm"
+                      stroke={COLORS.primary}
+                      strokeWidth={2}
+                      fill="url(#spmGradient)"
+                      name="SPM"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-6 mt-4 text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-red-500"></span>
+                  Too Slow (&lt;130)
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-green-500"></span>
+                  Ideal (130-300)
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-yellow-500"></span>
+                  Fast (300-400)
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-red-500"></span>
+                  Too Fast (&gt;400)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "loudness" && (
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-lg font-medium text-[var(--text-primary)] mb-2">Volume Over Time</h4>
+              <p className="text-sm text-[var(--text-tertiary)] mb-4">
+                Audio loudness in decibels (dB) relative to peak. Consistent volume indicates steady delivery.
+              </p>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={analysis.sampledLoudnessData}>
+                    <defs>
+                      <linearGradient id="loudnessGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={COLORS.secondary} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={COLORS.secondary} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fill: "var(--text-tertiary)", fontSize: 11 }}
+                      label={{ value: "Time (s)", position: "insideBottom", offset: -5, fill: "var(--text-tertiary)" }}
+                    />
+                    <YAxis
+                      tick={{ fill: "var(--text-tertiary)", fontSize: 11 }}
+                      label={{ value: "dB", angle: -90, position: "insideLeft", fill: "var(--text-tertiary)" }}
+                      domain={["auto", 0]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--bg-elevated)",
+                        border: "1px solid var(--border-primary)",
+                        borderRadius: "8px",
+                        color: "var(--text-primary)",
+                      }}
+                      formatter={(value) => [`${value ?? 0} dB`, "Volume"]}
+                      labelFormatter={(label) => `Time: ${label}s`}
                     />
                     <Area
                       type="monotone"
-                      dataKey="words"
-                      stroke={COLORS.primary}
-                      fill={COLORS.primary}
-                      fillOpacity={0.3}
-                      name="Words"
+                      dataKey="db"
+                      stroke={COLORS.secondary}
+                      strokeWidth={2}
+                      fill="url(#loudnessGradient)"
+                      name="Loudness"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div>
-              <h4 className="text-lg font-medium text-[var(--text-primary)] mb-4">Confidence & Filler Words</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analysis.timelineData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" />
-                    <XAxis dataKey="time" tick={{ fill: "var(--text-tertiary)", fontSize: 12 }} />
-                    <YAxis tick={{ fill: "var(--text-tertiary)", fontSize: 12 }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--bg-elevated)",
-                        border: "1px solid var(--border-primary)",
-                        borderRadius: "8px",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="confidence"
-                      stroke={COLORS.success}
-                      strokeWidth={2}
-                      dot={false}
-                      name="Confidence %"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="fillers"
-                      stroke={COLORS.warning}
-                      strokeWidth={2}
-                      dot={false}
-                      name="Filler Words"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+            {/* Volume Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
+                <p className="text-sm text-[var(--text-tertiary)]">Average Volume</p>
+                <p className="text-xl font-semibold text-[var(--text-primary)]">
+                  {Math.round(analysis.avgLoudness)} dB
+                </p>
+              </div>
+              <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
+                <p className="text-sm text-[var(--text-tertiary)]">Volume Variance</p>
+                <p className={`text-xl font-semibold ${
+                  analysis.loudnessVariance < 5 ? "text-green-400" :
+                  analysis.loudnessVariance < 10 ? "text-yellow-400" : "text-red-400"
+                }`}>
+                  {Math.round(analysis.loudnessVariance * 10) / 10}
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {analysis.loudnessVariance < 5 ? "Very consistent" :
+                   analysis.loudnessVariance < 10 ? "Somewhat varied" : "Highly varied"}
+                </p>
+              </div>
+              <div className="p-4 bg-[var(--bg-tertiary)] rounded-lg">
+                <p className="text-sm text-[var(--text-tertiary)]">Consistency Score</p>
+                <p className={`text-xl font-semibold ${getScoreColor(Math.max(0, 100 - analysis.loudnessVariance * 5))}`}>
+                  {Math.round(Math.max(0, 100 - analysis.loudnessVariance * 5))}%
+                </p>
               </div>
             </div>
           </div>
@@ -553,10 +799,11 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                   Strengths
                 </h5>
                 <ul className="space-y-1 text-sm text-[var(--text-secondary)]">
-                  {analysis.avgConfidence > 0.8 && <li>High speech clarity and confidence</li>}
-                  {analysis.wpm >= 120 && analysis.wpm <= 160 && <li>Good speaking pace</li>}
+                  {analysis.idealPercentage > 60 && <li>Good overall speaking pace</li>}
                   {analysis.fillerPercentage < 3 && <li>Minimal use of filler words</li>}
+                  {analysis.loudnessVariance < 5 && <li>Consistent volume throughout</li>}
                   {analysis.totalWords > 100 && <li>Substantial content delivered</li>}
+                  {analysis.avgSPM >= 130 && analysis.avgSPM <= 300 && <li>Ideal speaking rhythm</li>}
                 </ul>
               </div>
 
@@ -569,9 +816,10 @@ export function SpeechAnalysisResults({ data, onReset }: SpeechAnalysisResultsPr
                 </h5>
                 <ul className="space-y-1 text-sm text-[var(--text-secondary)]">
                   {analysis.fillerPercentage >= 3 && <li>Reduce filler words ({analysis.fillerCount} detected)</li>}
-                  {analysis.wpm < 120 && <li>Consider speaking slightly faster</li>}
-                  {analysis.wpm > 160 && <li>Slow down for better comprehension</li>}
-                  {analysis.avgConfidence < 0.8 && <li>Work on articulation clarity</li>}
+                  {analysis.avgSPM < 130 && <li>Consider speaking slightly faster</li>}
+                  {analysis.avgSPM > 400 && <li>Slow down for better comprehension</li>}
+                  {analysis.loudnessVariance >= 10 && <li>Work on maintaining consistent volume</li>}
+                  {analysis.idealPercentage < 50 && <li>Aim for more consistent pacing</li>}
                 </ul>
               </div>
             </div>
