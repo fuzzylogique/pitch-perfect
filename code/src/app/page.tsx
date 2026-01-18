@@ -794,33 +794,54 @@ export default function Home() {
                 Summary
               </h2>
               {report ? (
-                <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
-                  <div className="text-2xl font-semibold text-slate-50">
-                    {report.summary.overallScore} / 100
+                <div className="mt-4 flex flex-col gap-6 text-sm text-slate-200">
+                  <div className="flex flex-col gap-2">
+                    <div className="text-3xl font-semibold text-slate-50">
+                      {report.summary.overallScore} / 100
+                    </div>
+                    <p className="text-slate-300">{report.summary.headline}</p>
                   </div>
-                  <p className="text-slate-300">{report.summary.headline}</p>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Highlights
-                    </p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-200">
-                      {highlights.length === 0 && <li>No highlights yet.</li>}
-                      {highlights.map((item, index) => (
-                        <li key={`${item}-${index}`}>{item}</li>
-                      ))}
-                    </ul>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Highlights
+                      </p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-200">
+                        {highlights.length === 0 && <li>No highlights yet.</li>}
+                        {highlights.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Risks
+                      </p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-200">
+                        {risks.length === 0 && <li>No risks flagged.</li>}
+                        {risks.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Risks
-                    </p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-200">
-                      {risks.length === 0 && <li>No risks flagged.</li>}
-                      {risks.map((item, index) => (
-                        <li key={`${item}-${index}`}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  {report.recommendations && report.recommendations.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Key recommendations
+                      </p>
+                      <ul className="mt-2 flex flex-col gap-3 text-xs text-slate-200">
+                        {report.recommendations.slice(0, 3).map((rec, idx) => (
+                          <li key={`rec-${idx}`} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3">
+                            <p className="font-semibold text-slate-100">
+                              {rec.title} <span className="text-[10px] uppercase text-slate-400">({rec.priority})</span>
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-400">{rec.rationale}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {report.warnings && report.warnings.length > 0 && (
                     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
                       {report.warnings.join(" ")}
@@ -836,28 +857,30 @@ export default function Home() {
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">
+                Speech Content Feedback
+              </h2>
+              {renderSpeechContentFeedback(report?.speechContent)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
                 Deck Feedback
               </h2>
               {renderDeckFeedback(report?.pitchDeck)}
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-              <h2 className="text-base font-semibold text-slate-100">
-                Delivery &amp; Audio Feedback
-              </h2>
-              <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                    Delivery
-                  </h3>
-                  {renderDeliveryFeedback(report?.delivery)}
-                </div>
-                <div>
-                  <h3 className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                    Audio
-                  </h3>
-                  {renderAudioFeedback(report?.audio)}
-                </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                <h2 className="text-base font-semibold text-slate-100">
+                  Delivery Feedback
+                </h2>
+                {renderDeliveryFeedback(report?.delivery)}
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                <h2 className="text-base font-semibold text-slate-100">
+                  Audio Feedback
+                </h2>
+                {renderAudioFeedback(report?.audio)}
               </div>
             </div>
 
