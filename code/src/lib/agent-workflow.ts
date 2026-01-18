@@ -5,6 +5,7 @@ import {
   EvaluationReport,
   EvaluationRequest,
   PitchDeckCritique,
+  SpeechContentEvaluation,
   TranscriptionEvaluation,
   UploadedMedia,
   VoiceEvaluation,
@@ -62,6 +63,10 @@ const WorkflowState = Annotation.Root({
     reducer: (_left, right) => right,
     default: () => null,
   }),
+  speechContentResult: Annotation<AgentResult<SpeechContentEvaluation> | null>({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
   combinedResult: Annotation<AgentResult<CombineOutput> | null>({
     reducer: (_left, right) => right,
     default: () => null,
@@ -102,6 +107,31 @@ async function textAgent(state: typeof WorkflowState.State) {
     return { textResult: { status: "error", error: result.error } };
   }
   return { textResult: { status: "ok", data: result.data } };
+}
+
+async function speechContentAgent(state: typeof WorkflowState.State) {
+  const transcriptText = state.input.request.transcript?.trim();
+  const audioSummary = state.input.audioMeta ?? state.input.request.audioSummary;
+  if (!transcriptText && !audioSummary) {
+    return {
+      speechContentResult: {
+        status: "error",
+        error: "Transcript or audio summary is required.",
+      },
+    };
+  }
+  const prompt = await renderPrompt("speech-content-agent", {
+    context: state.input.request.context,
+    transcript: transcriptText ?? audioSummary,
+    audioSummary,
+  });
+  const result = await callGeminiJson<SpeechContentEvaluation>({ prompt });
+  if (!result.ok) {
+    return {
+      speechContentResult: { status: "error", error: result.error },
+    };
+  }
+  return { speechContentResult: { status: "ok", data: result.data } };
 }
 
 async function transcriptionAgent(state: typeof WorkflowState.State) {
@@ -195,12 +225,18 @@ async function combineAgent(state: typeof WorkflowState.State) {
     null,
     2
   );
+  const speechContentPayload = JSON.stringify(
+    state.speechContentResult?.data ?? null,
+    null,
+    2
+  );
   const prompt = await renderPrompt("combine-agent", {
     deckAgent: deckPayload,
     textAgent: textPayload,
     audioAgent: audioPayload,
     voiceAgent: voicePayload,
     transcriptionAgent: transcriptionPayload,
+    speechContentAgent: speechContentPayload,
   });
   const result = await callGeminiJson<CombineOutput>({ prompt });
   if (!result.ok) {
@@ -243,17 +279,20 @@ function buildWorkflow() {
   return new StateGraph(WorkflowState)
     .addNode("deckAgent", deckAgent)
     .addNode("textAgent", textAgent)
+    .addNode("speechContentAgent", speechContentAgent)
     .addNode("transcriptionAgent", transcriptionAgent)
     .addNode("audioAgent", audioAgent)
     .addNode("voiceAgent", voiceAgent)
     .addNode("combineAgent", combineAgent)
     .addEdge(START, "deckAgent")
     .addEdge(START, "textAgent")
+    .addEdge(START, "speechContentAgent")
     .addEdge(START, "transcriptionAgent")
     .addEdge(START, "audioAgent")
     .addEdge(START, "voiceAgent")
     .addEdge("deckAgent", "combineAgent")
     .addEdge("textAgent", "combineAgent")
+    .addEdge("speechContentAgent", "combineAgent")
     .addEdge("transcriptionAgent", "combineAgent")
     .addEdge("audioAgent", "combineAgent")
     .addEdge("voiceAgent", "combineAgent")
@@ -353,9 +392,18 @@ export async function runAgentWorkflow(params: {
   const audio = finalState.audioResult?.data;
   const voice = finalState.voiceResult?.data;
   const transcription = finalState.transcriptionResult?.data;
+  const speechContent = finalState.speechContentResult?.data;
 
   if (finalState.deckResult?.status === "error" && finalState.deckResult.error) {
     warnings.push(`Deck agent failed: ${finalState.deckResult.error}`);
+  }
+  if (
+    finalState.speechContentResult?.status === "error" &&
+    finalState.speechContentResult.error
+  ) {
+    warnings.push(
+      `Speech content agent failed: ${finalState.speechContentResult.error}`
+    );
   }
   if (finalState.textResult?.status === "error" && finalState.textResult.error) {
     warnings.push(`Text agent failed: ${finalState.textResult.error}`);
@@ -389,6 +437,7 @@ export async function runAgentWorkflow(params: {
       transcript: transcriptInfo,
       voice,
       transcription,
+      speechContent,
     });
   }
 
@@ -399,6 +448,7 @@ export async function runAgentWorkflow(params: {
     delivery,
     audio,
     voice,
+    speechContent,
     transcript: transcriptInfo,
     timeline: finalState.combinedResult.data.timeline,
     recommendations: finalState.combinedResult.data.recommendations,

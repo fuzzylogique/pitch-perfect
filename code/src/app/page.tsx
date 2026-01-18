@@ -10,6 +10,7 @@ import type {
   EvaluationReport,
   EvaluationTarget,
   PitchDeckCritique,
+  SpeechContentEvaluation,
   TranscriptionEvaluation,
   VoiceEvaluation,
 } from "@/lib/evaluation-schema";
@@ -51,6 +52,7 @@ export default function Home() {
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRawReport, setShowRawReport] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -260,6 +262,34 @@ export default function Home() {
     </div>
   );
 };
+
+  const renderSpeechContentFeedback = (content?: SpeechContentEvaluation) => {
+    if (!content) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No speech content evaluation available yet.
+        </p>
+      );
+    }
+    const categoryEntries: Array<[string, CategoryScore]> = [
+      ["Story Arc", content.storyArc],
+      ["Value Prop", content.valueProp],
+      ["Differentiation", content.differentiation],
+      ["Ask", content.ask],
+    ];
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {content.overallScore} / 100
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {categoryEntries.map(([label, category]) =>
+            renderCategory(label, category)
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderTranscriptionFeedback = (transcription?: TranscriptionEvaluation) => {
     if (!transcription) {
@@ -745,6 +775,18 @@ export default function Home() {
                   </ul>
                 </div>
               )}
+              <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+                <button
+                  type="button"
+                  onClick={() => setShowRawReport((prev) => !prev)}
+                  className="rounded-full border border-slate-700 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-slate-100 transition hover:border-slate-500"
+                >
+                  {showRawReport ? "Hide raw report" : "Show raw report"}
+                </button>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+                  Raw debugging output
+                </span>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
@@ -828,19 +870,28 @@ export default function Home() {
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">
+                Speech Content Feedback
+              </h2>
+              {renderSpeechContentFeedback(report?.speechContent)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
                 Transcription Feedback
               </h2>
               {renderTranscriptionFeedback(report?.transcription)}
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-              <h2 className="text-base font-semibold text-slate-100">
-                Raw Report
-              </h2>
-              <pre className="mt-3 max-h-80 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-950/80 p-3 text-xs text-slate-200">
-                {report ? JSON.stringify(report, null, 2) : "No data yet."}
-              </pre>
-            </div>
+            {showRawReport && (
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                <h2 className="text-base font-semibold text-slate-100">
+                  Raw Report
+                </h2>
+                <pre className="mt-3 max-h-80 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-950/80 p-3 text-xs text-slate-200">
+                  {report ? JSON.stringify(report, null, 2) : "No data yet."}
+                </pre>
+              </div>
+            )}
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">

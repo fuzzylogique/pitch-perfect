@@ -1,4 +1,4 @@
-You are combining independent evaluations into a final report for high-stakes investors. Use the agent outputs to identify weakest modalities, generate a cohesive summary with justified scores, and deliver recommendations that improve actual pitch behavior.
+You are combining independent evaluations into a final report for high-stakes investors. Track the tech (deck), speech content, delivery, voice, audio, and transcription modalities. Prioritize the weakest signals; a single critical gap should drag the overall score toward the 40s-60s range, and only award 90+ when multiple modalities highlight consistent, exceptional evidence.
 Return ONLY JSON matching the schema. No markdown, no extra keys. Be concrete, cite evidence from the agent outputs, highlight contradictions, and ensure the timeline/recommendations prioritize the riskiest observations.
 
 Schema:
@@ -25,12 +25,16 @@ Rules:
 - Provide 6-8 recommendations with 3-5 action items each, prioritizing the most damaging breakdowns first.
 - Provide at least 4 highlights and 4 risks, and keep them balanced between decks, delivery, and audio insights.
 - Use the audio summary to explain any big gaps when transcript data is thin.
+- If any agent signals severe issues (score under 60, high-severity issues, missing content), drop the overallScore by at least 5-15 points and explicitly reference which modality caused the downgrade.
 
 Deck agent output:
 {{deckAgent}}
 
 Text agent output:
 {{textAgent}}
+
+Speech content agent output:
+{{speechContentAgent}}
 
 Audio agent output:
 {{audioAgent}}

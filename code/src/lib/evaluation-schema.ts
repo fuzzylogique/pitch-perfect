@@ -97,6 +97,14 @@ export interface VoiceEvaluation {
   overallSummary: string;
 }
 
+export interface SpeechContentEvaluation {
+  overallScore: number;
+  storyArc: CategoryScore;
+  valueProp: CategoryScore;
+  differentiation: CategoryScore;
+  ask: CategoryScore;
+}
+
 export interface TranscriptionEvaluation {
   overallScore: number;
   clarity: CategoryScore;
@@ -141,6 +149,7 @@ export interface EvaluationReport {
   audio?: AudioEvaluation;
   video?: VideoEvaluation;
   voice?: VoiceEvaluation;
+  speechContent?: SpeechContentEvaluation;
   transcription?: TranscriptionEvaluation;
   transcript?: TranscriptInfo;
   timeline?: TimelineEvent[];
