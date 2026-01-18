@@ -58,9 +58,24 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      // Create MediaRecorder
+      // Create MediaRecorder - try supported formats in order of preference
+      // Backend accepts: audio/webm, video/webm, video/mp4, audio/mpeg, audio/mp3, audio/wav
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported("audio/webm")) {
+        if (MediaRecorder.isTypeSupported("video/webm")) {
+          mimeType = "video/webm";
+        } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+          mimeType = "video/mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
+          mimeType = "audio/mpeg";
+        } else {
+          // Fallback to default if none supported
+          mimeType = "";
+        }
+      }
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4",
+        mimeType: mimeType || undefined,
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -73,13 +88,40 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
       };
 
       mediaRecorder.onstop = () => {
+        // Use the actual MIME type from MediaRecorder, but ensure it's compatible with backend
+        // Backend accepts: audio/mpeg, audio/mp3, audio/wav, video/mp4, audio/webm, video/webm
+        const recordedMimeType = mediaRecorder.mimeType || "";
+        let fileMimeType = recordedMimeType;
+        let extension = "webm";
+
+        // Map MIME types to backend-compatible ones
+        if (recordedMimeType.includes("webm")) {
+          // Prefer audio/webm if it starts with audio/, otherwise video/webm
+          fileMimeType = recordedMimeType.startsWith("audio/") ? "audio/webm" : "video/webm";
+          extension = "webm";
+        } else if (recordedMimeType.includes("mp4")) {
+          // Backend accepts video/mp4 but NOT audio/mp4, so always use video/mp4 for mp4
+          fileMimeType = "video/mp4";
+          extension = "mp4";
+        } else if (recordedMimeType.includes("mpeg") || recordedMimeType.includes("mp3")) {
+          fileMimeType = "audio/mpeg";
+          extension = "mp3";
+        } else if (recordedMimeType.includes("wav")) {
+          fileMimeType = "audio/wav";
+          extension = "wav";
+        } else {
+          // Default fallback to audio/webm (most common supported format)
+          fileMimeType = "audio/webm";
+          extension = "webm";
+        }
+
         const audioBlob = new Blob(audioChunksRef.current, {
-          type: mediaRecorder.mimeType
+          type: fileMimeType
         });
 
-        // Convert to File object
-        const fileName = `recording-${Date.now()}.${mediaRecorder.mimeType.includes("webm") ? "webm" : "mp4"}`;
-        const file = new File([audioBlob], fileName, { type: mediaRecorder.mimeType });
+        // Convert to File object with backend-compatible MIME type
+        const fileName = `recording-${Date.now()}.${extension}`;
+        const file = new File([audioBlob], fileName, { type: fileMimeType });
         const audioUrl = URL.createObjectURL(audioBlob);
 
         onRecordingComplete(file, audioUrl);

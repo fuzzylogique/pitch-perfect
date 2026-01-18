@@ -33,16 +33,27 @@ export interface PDFAnalysisResponse {
 
 export async function analyzeAudio(file: File): Promise<AudioAnalysisResponse> {
   const formData = new FormData();
-  formData.append("file", file);
+  // Explicitly append the file with filename to ensure proper multipart encoding
+  formData.append("file", file, file.name);
 
   const response = await fetch(`${API_BASE_URL}/analyze`, {
     method: "POST",
+    // Don't set Content-Type header - browser will set it automatically with boundary
     body: formData,
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Analysis failed" }));
-    throw new Error(error.detail || "Failed to analyze audio");
+    const errorMessage = error.detail || error.error || "Failed to analyze audio";
+    console.error("Audio analysis error:", {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorMessage,
+      fileType: file.type,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+    throw new Error(errorMessage);
   }
 
   return response.json();
