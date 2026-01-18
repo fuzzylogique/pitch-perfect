@@ -10,6 +10,7 @@ import type {
   EvaluationReport,
   EvaluationTarget,
   PitchDeckCritique,
+  TranscriptionEvaluation,
   VoiceEvaluation,
 } from "@/lib/evaluation-schema";
 
@@ -20,6 +21,14 @@ const targets: EvaluationTarget[] = [
   "audio",
   "video",
 ];
+
+const statusDescriptions: Record<string, string> = {
+  idle: "Idle — waiting for inputs to kick off.",
+  queued: "Queued — prepping media + ensuring Gemini slots.",
+  running: "Running — Gemini agents analyzing deck/audio.",
+  completed: "Completed — results available in the report.",
+  failed: "Failed — review errors and try again.",
+};
 
 export default function Home() {
   const [target, setTarget] = useState<EvaluationTarget>("full");
@@ -45,6 +54,11 @@ export default function Home() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+
+  const isProcessingPhase =
+    isSubmitting || jobStatus === "queued" || jobStatus === "running";
+  const currentStatusLabel =
+    statusDescriptions[jobStatus] ?? "Processing your pitch evaluation.";
 
   const highlights = useMemo(() => report?.summary?.highlights ?? [], [report]);
   const risks = useMemo(() => report?.summary?.risks ?? [], [report]);
@@ -209,7 +223,7 @@ export default function Home() {
         )}
     </div>
   );
-};
+  };
 
   const renderVoiceFeedback = (voice?: VoiceEvaluation) => {
     if (!voice) {
@@ -243,6 +257,67 @@ export default function Home() {
             renderCategory(label, category)
           )}
         </div>
+    </div>
+  );
+};
+
+  const renderTranscriptionFeedback = (transcription?: TranscriptionEvaluation) => {
+    if (!transcription) {
+      return (
+        <p className="mt-3 text-sm text-slate-400">
+          No transcription evaluation available yet.
+        </p>
+      );
+    }
+    const categoryEntries: Array<[string, CategoryScore]> = [
+      ["Clarity", transcription.clarity],
+      ["Relevance", transcription.relevance],
+      ["Structure", transcription.structure],
+    ];
+    return (
+      <div className="mt-4 flex flex-col gap-4 text-sm text-slate-200">
+        <div className="text-2xl font-semibold text-slate-50">
+          {transcription.overallScore} / 100
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {categoryEntries.map(([label, category]) =>
+            renderCategory(label, category)
+          )}
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            Highlights
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200">
+            {transcription.highlights.length === 0 && <li>No highlights listed.</li>}
+            {transcription.highlights.map((item, index) => (
+              <li key={`transcription-highlight-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            Risks
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200">
+            {transcription.risks.length === 0 && <li>No risks flagged.</li>}
+            {transcription.risks.map((item, index) => (
+              <li key={`transcription-risk-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        {transcription.recommendations.length > 0 && (
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              Recommendations
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200">
+              {transcription.recommendations.map((item, index) => (
+                <li key={`transcription-recommendation-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     );
   };
@@ -621,12 +696,14 @@ export default function Home() {
               {isSubmitting ? "Starting..." : "Start Evaluation"}
             </button>
 
-            {(isSubmitting || (jobStatus !== "idle" && jobStatus !== "completed" && jobStatus !== "failed")) && (
+            {isProcessingPhase && (
               <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-200">
-                <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                <span>
-                  {isSubmitting ? "Submitting inputs..." : `Processing: ${jobStatus}`}
-                </span>
+                <span
+                  className={`inline-flex h-2 w-2 rounded-full bg-emerald-400 ${
+                    isProcessingPhase ? "animate-pulse" : ""
+                  }`}
+                />
+                <span>{isSubmitting ? "Submitting inputs..." : currentStatusLabel}</span>
               </div>
             )}
 
@@ -645,6 +722,16 @@ export default function Home() {
               <div className="mt-3 text-sm text-slate-300">
                 <div>Status: {jobStatus}</div>
                 <div>Job ID: {jobId ?? "—"}</div>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <span
+                  className={`inline-flex h-2 w-2 rounded-full bg-emerald-400 ${
+                    jobStatus === "queued" || jobStatus === "running"
+                      ? "animate-pulse"
+                      : ""
+                  }`}
+                />
+                <span>{statusDescriptions[jobStatus] ?? "Status pending..."}</span>
               </div>
               {submittedInputs && (
                 <div className="mt-4 text-xs text-slate-300">
@@ -714,16 +801,22 @@ export default function Home() {
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">
-                Delivery Feedback
+                Delivery &amp; Audio Feedback
               </h2>
-              {renderDeliveryFeedback(report?.delivery)}
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-              <h2 className="text-base font-semibold text-slate-100">
-                Audio Feedback
-              </h2>
-              {renderAudioFeedback(report?.audio)}
+              <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                <div>
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Delivery
+                  </h3>
+                  {renderDeliveryFeedback(report?.delivery)}
+                </div>
+                <div>
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Audio
+                  </h3>
+                  {renderAudioFeedback(report?.audio)}
+                </div>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
@@ -731,6 +824,13 @@ export default function Home() {
                 Voice Feedback
               </h2>
               {renderVoiceFeedback(report?.voice)}
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-base font-semibold text-slate-100">
+                Transcription Feedback
+              </h2>
+              {renderTranscriptionFeedback(report?.transcription)}
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">

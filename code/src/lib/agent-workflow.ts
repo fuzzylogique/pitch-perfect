@@ -5,6 +5,7 @@ import {
   EvaluationReport,
   EvaluationRequest,
   PitchDeckCritique,
+  TranscriptionEvaluation,
   UploadedMedia,
   VoiceEvaluation,
 } from "./evaluation-schema";
@@ -12,7 +13,11 @@ import { renderPrompt } from "./agent-prompts";
 import { callGeminiJson, getDefaultModel } from "./agent-llm";
 import { prepareAudioForAgent } from "./media-utils";
 import { transcribeWithElevenLabs } from "./transcription";
-import { analyzeAudioWithGemini } from "./audio-analysis";
+import {
+  analyzeAudioWithGemini,
+  transcribeAudioWithGemini,
+  GeminiAudioFile,
+} from "./audio-analysis";
 
 type AgentStatus = "ok" | "error";
 
@@ -50,6 +55,10 @@ const WorkflowState = Annotation.Root({
     default: () => null,
   }),
   voiceResult: Annotation<AgentResult<VoiceEvaluation> | null>({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  transcriptionResult: Annotation<AgentResult<TranscriptionEvaluation> | null>({
     reducer: (_left, right) => right,
     default: () => null,
   }),
@@ -95,22 +104,48 @@ async function textAgent(state: typeof WorkflowState.State) {
   return { textResult: { status: "ok", data: result.data } };
 }
 
+async function transcriptionAgent(state: typeof WorkflowState.State) {
+  const transcriptText = state.input.request.transcript?.trim();
+  if (!transcriptText) {
+    return {
+      transcriptionResult: { status: "error", error: "Transcript is missing." },
+    };
+  }
+  const prompt = await renderPrompt("transcription-agent", {
+    context: state.input.request.context,
+    transcript: transcriptText,
+    audioSummary: state.input.request.audioSummary,
+  });
+  const result = await callGeminiJson<TranscriptionEvaluation>({ prompt });
+  if (!result.ok) {
+    return {
+      transcriptionResult: { status: "error", error: result.error },
+    };
+  }
+  return { transcriptionResult: { status: "ok", data: result.data } };
+}
+
 async function audioAgent(state: typeof WorkflowState.State) {
-  const audioTranscript = state.input.request.transcript?.trim();
+  const transcriptCandidate = state.input.request.transcript?.trim();
+  const audioSummary = state.input.request.audioSummary?.trim();
   const audioMeta = state.input.audioMeta ?? "No audio metadata.";
   if (!state.input.audioAvailable) {
     return {
       audioResult: { status: "ok" },
     };
   }
-  if (!audioTranscript) {
+  const transcriptForAgent = transcriptCandidate ?? audioSummary;
+  if (!transcriptForAgent) {
     return {
-      audioResult: { status: "error", error: "Transcript is missing." },
+      audioResult: {
+        status: "error",
+        error: "Transcript or audio summary is missing.",
+      },
     };
   }
   const prompt = await renderPrompt("audio-agent", {
     audioMeta,
-    transcript: audioTranscript,
+    transcript: transcriptForAgent,
     audioSummary: state.input.request.audioSummary,
   });
   const result = await callGeminiJson<AudioEvaluation>({ prompt });
@@ -121,21 +156,26 @@ async function audioAgent(state: typeof WorkflowState.State) {
 }
 
 async function voiceAgent(state: typeof WorkflowState.State) {
-  const audioTranscript = state.input.request.transcript?.trim();
+  const transcriptCandidate = state.input.request.transcript?.trim();
+  const audioSummary = state.input.request.audioSummary?.trim();
   const audioMeta = state.input.audioMeta ?? "No audio metadata.";
   if (!state.input.audioAvailable) {
     return {
       voiceResult: { status: "ok" },
     };
   }
-  if (!audioTranscript) {
+  const transcriptForAgent = transcriptCandidate ?? audioSummary;
+  if (!transcriptForAgent) {
     return {
-      voiceResult: { status: "error", error: "Transcript is missing." },
+      voiceResult: {
+        status: "error",
+        error: "Transcript or audio summary is missing.",
+      },
     };
   }
   const prompt = await renderPrompt("voice-agent", {
     audioMeta,
-    transcript: audioTranscript,
+    transcript: transcriptForAgent,
     audioSummary: state.input.request.audioSummary,
   });
   const result = await callGeminiJson<VoiceEvaluation>({ prompt });
@@ -150,11 +190,17 @@ async function combineAgent(state: typeof WorkflowState.State) {
   const textPayload = JSON.stringify(state.textResult?.data ?? null, null, 2);
   const audioPayload = JSON.stringify(state.audioResult?.data ?? null, null, 2);
   const voicePayload = JSON.stringify(state.voiceResult?.data ?? null, null, 2);
+  const transcriptionPayload = JSON.stringify(
+    state.transcriptionResult?.data ?? null,
+    null,
+    2
+  );
   const prompt = await renderPrompt("combine-agent", {
     deckAgent: deckPayload,
     textAgent: textPayload,
     audioAgent: audioPayload,
     voiceAgent: voicePayload,
+    transcriptionAgent: transcriptionPayload,
   });
   const result = await callGeminiJson<CombineOutput>({ prompt });
   if (!result.ok) {
@@ -181,6 +227,7 @@ function buildFallbackReport(
     audio: partial?.audio,
     transcript: partial?.transcript,
     voice: partial?.voice,
+    transcription: partial?.transcription,
     timeline: partial?.timeline,
     recommendations: partial?.recommendations ?? [],
     warnings,
@@ -196,15 +243,18 @@ function buildWorkflow() {
   return new StateGraph(WorkflowState)
     .addNode("deckAgent", deckAgent)
     .addNode("textAgent", textAgent)
+    .addNode("transcriptionAgent", transcriptionAgent)
     .addNode("audioAgent", audioAgent)
     .addNode("voiceAgent", voiceAgent)
     .addNode("combineAgent", combineAgent)
     .addEdge(START, "deckAgent")
     .addEdge(START, "textAgent")
+    .addEdge(START, "transcriptionAgent")
     .addEdge(START, "audioAgent")
     .addEdge(START, "voiceAgent")
     .addEdge("deckAgent", "combineAgent")
     .addEdge("textAgent", "combineAgent")
+    .addEdge("transcriptionAgent", "combineAgent")
     .addEdge("audioAgent", "combineAgent")
     .addEdge("voiceAgent", "combineAgent")
     .addEdge("combineAgent", END)
@@ -231,6 +281,7 @@ export async function runAgentWorkflow(params: {
   let resolvedTranscript = transcriptText;
 
   let audioSummary: string | undefined = params.request.audioSummary;
+  let geminiAudioFile: GeminiAudioFile | undefined;
   if (transcriptText) {
     transcriptInfo = { source: "user", text: transcriptText };
   } else if (audioPath) {
@@ -250,18 +301,34 @@ export async function runAgentWorkflow(params: {
   }
 
   if (!resolvedTranscript && audioPath) {
+    const audioTranscription = await transcribeAudioWithGemini({
+      audioPath,
+      mimeType,
+      audioMeta,
+    });
+    if (audioTranscription.ok) {
+      resolvedTranscript = audioTranscription.transcript;
+      audioSummary = audioTranscription.transcript;
+      transcriptInfo = {
+        source: "gemini-transcription",
+        text: audioTranscription.transcript,
+      };
+      geminiAudioFile = audioTranscription.fileInfo;
+    } else if (audioTranscription.error) {
+      warnings.push(audioTranscription.error);
+    }
+  }
+
+  if (audioPath) {
     const audioAnalysis = await analyzeAudioWithGemini({
       audioPath,
       audioMeta,
       mimeType,
+      existingFile: geminiAudioFile,
     });
     if (audioAnalysis.ok) {
-      resolvedTranscript = audioAnalysis.summary;
       audioSummary = audioAnalysis.summary;
-      transcriptInfo = {
-        source: "gemini-audio",
-        text: audioAnalysis.summary,
-      };
+      geminiAudioFile = audioAnalysis.fileInfo;
     } else if (audioAnalysis.error) {
       warnings.push(audioAnalysis.error);
     }
@@ -285,6 +352,7 @@ export async function runAgentWorkflow(params: {
   const delivery = finalState.textResult?.data;
   const audio = finalState.audioResult?.data;
   const voice = finalState.voiceResult?.data;
+  const transcription = finalState.transcriptionResult?.data;
 
   if (finalState.deckResult?.status === "error" && finalState.deckResult.error) {
     warnings.push(`Deck agent failed: ${finalState.deckResult.error}`);
@@ -297,6 +365,14 @@ export async function runAgentWorkflow(params: {
   }
   if (finalState.voiceResult?.status === "error" && finalState.voiceResult.error) {
     warnings.push(`Voice agent failed: ${finalState.voiceResult.error}`);
+  }
+  if (
+    finalState.transcriptionResult?.status === "error" &&
+    finalState.transcriptionResult.error
+  ) {
+    warnings.push(
+      `Transcription agent failed: ${finalState.transcriptionResult.error}`
+    );
   }
 
   if (
@@ -312,6 +388,7 @@ export async function runAgentWorkflow(params: {
       audio,
       transcript: transcriptInfo,
       voice,
+      transcription,
     });
   }
 
