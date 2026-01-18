@@ -567,7 +567,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_55%),radial-gradient(circle_at_20%_80%,_rgba(94,234,212,0.18),_transparent_45%)]" />
-      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-12">
+      <main className="relative mx-auto flex w-full max-w-7xl flex-col gap-12 px-8 py-16">
         <header className="fade-in-up flex flex-col gap-4">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
             Pitch Perfect Evaluation
@@ -581,10 +581,10 @@ export default function Home() {
           </p>
         </header>
 
-        <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] xl:gap-12">
           <form
             onSubmit={handleSubmit}
-            className="fade-in-up flex min-w-0 flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.9)] backdrop-blur"
+            className="fade-in-up flex min-w-0 flex-col gap-6 rounded-[32px] border border-slate-800 bg-slate-900/70 p-8 shadow-[0_25px_65px_-45px_rgba(2,6,23,0.85)] backdrop-blur-2xl"
           >
             <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm font-semibold text-slate-200">
@@ -744,7 +744,7 @@ export default function Home() {
             )}
           </form>
 
-          <div className="fade-in-up flex min-w-0 flex-col gap-6">
+          <div className="fade-in-up flex min-w-0 flex-col gap-8">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h2 className="text-base font-semibold text-slate-100">
                 Job Status
